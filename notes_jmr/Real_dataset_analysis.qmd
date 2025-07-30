@@ -1,0 +1,280 @@
+---
+title: "Real Dataset Analysis"
+# author: Javier Mtz.-Rdz.
+date-format: long
+number-sections: true
+number-depth: 4
+fig-dpi: 400
+format: 
+  pdf:
+    documentclass: article
+    header-includes: |
+      \usepackage[left=0.7in,right=0.7in,
+      top=0.7in,bottom=0.5in,footskip=0.7in]{geometry} 
+      \usepackage[document]{ragged2e}
+      \usepackage{amsmath,amsthm,amssymb,amsfonts}
+      \usepackage{mathtools}
+      % Using kp fonts
+      \usepackage{kpfonts}
+      \usepackage{dsfont}
+      \usepackage{centernot}
+      \usepackage[usenames,dvipsnames,table]{xcolor}
+      \usepackage{booktabs} % For improved table lines
+      \renewcommand{\arraystretch}{1} % Increase row spacing
+      \renewcommand\thefigure{\arabic{figure}}
+    fontsize: 12pt
+    colorlinks: true
+knitr:
+  opts_chunk:
+    comment: "#>"
+    message: FALSE
+    dev: "png"
+    fig.width: 8
+    fig.height: 4.5
+    fig.align: center
+editor_options: 
+  chunk_output_type: console
+bibliography: competing-risk.bib
+---
+
+```{r preprocessing, include=FALSE}
+# Setup ----
+## Packages to use ----
+
+#' To install mytidyfunctions, you need 
+#' remotes::install_github("JavierMtzRdz/mytidyfunctions")
+if (!require("pacman")) install.packages("pacman")
+if (!require("mytidyfunctions")) remotes::install_github("JavierMtzRdz/mytidyfunctions")
+
+
+pacman::p_load(tidyverse, janitor, writexl, 
+              readxl, scales, mytidyfunctions,
+              patchwork, here, 
+              mtool, bench, kableExtra)
+
+library(casebase)
+library(future.apply)
+library(glmnet)
+library(mtool)
+library(parallel)
+library(tictoc)
+library(tidyverse)
+library(foreach)
+library(survival)
+library(cmprsk)
+library(glue)
+library(pec)
+library(survminer)
+
+
+source(here(#"MSc_criskcasebase",
+            "paper","code", "fitting_functionsV2.R"))
+
+## Load fonts ----
+extrafont::loadfonts(quiet = TRUE)
+
+## Set theme ------
+mytidyfunctions::set_mytheme(text = element_text(family = "Times New Roman"))
+
+
+# Set-up process
+
+save <- F
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+
+# Load coefficients
+blader <- read_delim(here::here("notes_jmr/data/GSE5479_clinical_information.txt")) %>% 
+    clean_names()
+
+blader1 <- read_delim(here::here("notes_jmr/data/GSE5479_Final_processed_data_1.txt")) %>% 
+    t() %>% 
+    row_to_names(row_number = 1)
+
+dim(blader1)
+
+blader2 <- read_delim(here::here("notes_jmr/data/GSE5479_Final_processed_data_2.txt")) %>% 
+    t() %>% 
+    row_to_names(row_number = 1) 
+    
+dim(blader2)
+
+blader %>% 
+    count(make_clean_names(sample_name))
+
+janitor::make_clean_names()
+```
+
+# Simulations
+
+```{r}
+#| echo: false
+#| warning: false
+if (F){
+select_mod <- map_df(1:nrow(data_proj), 
+                    function(i){data_proj[i,-1] %>% 
+                            select(-sim) %>% 
+    bind_cols(suppressMessages(readRDS(data_proj$name_files_comp[i])) %>% 
+                  mutate(model_size = TP + FP) #%>% 
+                  # mutate(model = case_match(model,
+                  #                           "iCR.bias" ~ "enet-iCR",
+                  #                           "penCRbias" ~ "enet-penCR",
+                  #                           "CB-bias" ~ "enet-casebase",
+                  #                           "CB-bias-Acc" ~ "enet-casebase-Acc",
+                  #                           "postCB-bias" ~ "postenet-casebase",
+                  #                           "postCB-bias-Acc" ~ "postenet-casebase-Acc"))
+              )})
+# coefs_mod <- coefs_mod %>% 
+#     filter(!str_detect(model, "bias"))
+
+saveRDS(select_mod, here("paper", "results", "select_mod.rds"))
+}
+select_mod <- readRDS(here("paper", "results", "select_mod.rds"))
+
+
+```
+
+## Results
+
+One example
+```{r}
+select_mod %>% 
+    filter(p == 1000, k == 168) %>% 
+    filter(sim == 17,
+           setting == 1) %>% 
+    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
+               color = model)) +
+    geom_path() +
+    coord_equal()
+
+
+select_mod %>% 
+      filter(p == 1000, k == 168) %>% 
+    filter(name == first(name)) %>% 
+    ggplot(aes(x = model_size, y = Specificity,
+               color = model)) +
+    geom_path() +
+    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+```
+
+Multiple examples
+```{r}
+#| fig-height: 7
+
+select_mod %>% 
+    filter(setting == 1) %>% 
+    arrange(p, model_size) %>% 
+    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
+               color = model)) +
+    geom_smooth(size = 0.5, 
+                span = 0.8,
+                se = FALSE) +
+    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) +
+    coord_equal()
+
+
+sum_selec <- select_mod %>% 
+    # filter(sim <=15) %>%
+    group_by(model, setting, dim, p, k, model_size) %>% 
+    summarise(n_models = n(),
+              across(Sensitivity:MCC, mean))
+
+sum_selec %>% 
+    filter(setting == 1) %>% 
+    arrange(p, model_size) %>% 
+    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
+               color = model)) +
+    geom_path() +
+    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) +
+    coord_equal()
+    
+    
+    
+
+```
+
+
+```{r}
+
+select_mod %>% 
+    filter(setting == 1,
+           # model_size %% 10 == 0,
+           model_size <= 250) %>% 
+        arrange(p, model_size) %>% 
+    ggplot(aes(x = model_size, y = Sensitivity,
+               color = model)) +
+    # geom_path() +
+    geom_path(aes(group = sim), alpha = 0.) +
+      geom_smooth(span = 0.8,
+                  size = 0.5,
+                se = FALSE) +
+    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+
+select_mod %>% 
+    filter(setting == 1,
+           # model_size %% 10 == 0,
+           model_size <= 250) %>% 
+        arrange(p, model_size) %>% 
+    ggplot(aes(x = model_size, y = Specificity,
+               color = model)) +
+    # geom_path() +
+    geom_path(aes(group = sim), alpha = 0.1) +
+      geom_smooth(span = 0.8,
+                  size = 0.5,
+                se = FALSE) +
+    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+
+select_mod %>% 
+    filter(setting == 1,
+           # model_size %% 10 == 0,
+           model_size <= 250) %>% 
+        arrange(p, model_size) %>% 
+    ggplot(aes(x = model_size, y = MCC,
+               color = model)) +
+    # geom_path() +
+    geom_path(aes(group = sim), alpha = 0.1) +
+      geom_smooth(span = 0.8,
+                  size = 0.5,
+                se = FALSE) +
+    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+
+
+sum_selec %>% 
+    filter(setting == 1,
+           # model_size %% 10 == 0,
+           model_size <= 250) %>% 
+        arrange(p, model_size) %>% 
+    ggplot(aes(x = model_size, y = Sensitivity,
+               color = model)) +
+    geom_path() +
+    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+
+sum_selec %>% 
+    filter(setting == 1,
+           # model_size %% 10 == 0,
+           model_size <= 250) %>% 
+        arrange(p) %>% 
+    ggplot(aes(x = model_size, y = Specificity,
+               color = model)) +
+    geom_path() +
+    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+
+sum_selec %>% 
+    filter(setting == 1,
+           # model_size %% 10 == 0,
+           model_size <= 250) %>% 
+        arrange(p) %>% 
+    ggplot(aes(x = model_size, y = MCC,
+               color = model)) +
+    geom_path() +
+    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+
+```
+
+
+# References
+

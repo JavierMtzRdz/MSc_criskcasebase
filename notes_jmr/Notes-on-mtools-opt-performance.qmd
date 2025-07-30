@@ -337,6 +337,16 @@ if (save){
                     lambda1 = lambda1, lambda2 = lambda2, 
                     lambda3 = 0
                 ),
+                       MNlogisticPCD = mtool::mtool.MNlogisticPCD(
+                    X = data$X_train,
+                    Y = data$Y_train,
+                    offset = data$offset,
+                    N_covariates = 2,
+                    regularization = 'elastic-net',
+                    transpose = FALSE,
+                    lambda1 = lambda1, lambda2 = lambda2, 
+                    lambda3 = 0
+                ),
                 glmnet = glmnet(data$X_train,
                                 data$Y_train,
                                 alpha = alpha, 
@@ -471,6 +481,128 @@ objective <- function(B, X, Y, offset,
     return(loss_value + penalty_value)
 }
 
+
+objective <- function(B, X, Y, offset,
+                      lambda, alpha,
+                      reg_p = NULL,
+                      weights = NULL,
+                      epsilon = 1e-15) {
+
+  # --- Input Checks ---
+  if (!is.matrix(B)) stop("B must be a matrix.")
+  if (!is.matrix(X)) stop("X must be a matrix.")
+  if (!is.numeric(Y)) stop("Y must be a numeric vector.") # Allow numeric
+  if (!is.numeric(offset)) stop("offset must be a numeric vector.") # Allow numeric
+
+  n_obs <- nrow(X)
+  p_fit <- ncol(X) # Number of features in X, including intercept
+  K_event_classes <- ncol(B) # Number of non-reference event classes
+
+  if (is.null(weights)) {
+    weights <- rep(1.0, n_obs)
+  } 
+  Y_int <- as.integer(Y)
+  if (!isTRUE(all.equal(Y, Y_int))) warning("Y converted to integer.")
+  Y <- Y_int
+  unique_Y_values <- unique(Y)
+  if (!all(unique_Y_values %in% 0:K_event_classes)) {
+      warning("Y contains values outside the expected range [0, K_event_classes].")
+  }
+
+
+  # --- 1. Calculate Loss Term: Negative Log-Likelihood ---
+  # Linear predictors: eta_ik = X_i %*% beta_k + offset_i
+  # eta will be n_obs x K_event_classes
+  eta <- X %*% B
+  eta <- sweep(eta, 1, offset, "+") # Add offset to each column of eta
+
+  # Calculate denominator for probabilities: 1 + sum_k(exp(eta_ik)) for each observation i
+  # Use numerically stable log-sum-exp trick for log(1 + sum_k exp(eta_ik))
+  # log_denom_i = max_stable_i + log(exp(-max_stable_i) + sum_k exp(eta_ik - max_stable_i))
+  # where max_stable_i = max(0, max_k(eta_ik)) to include the "1" (which is exp(0)).
+
+  log_denominators <- numeric(n_obs)
+  for (i in 1:n_obs) {
+      eta_i_row <- eta[i, , drop = TRUE]
+      max_val_for_row <- max(0, eta_i_row) # max(0, max_k(eta_ik))
+      log_denominators[i] <- max_val_for_row +
+                           log(exp(-max_val_for_row) + sum(exp(eta_i_row - max_val_for_row)))
+  }
+  # This log_denominators[i] is log(1 + sum_l exp(eta_il))
+
+  # Calculate log-likelihood contributions
+  neg_log_lik_terms <- numeric(n_obs)
+  for (i in 1:n_obs) {
+    if (Y[i] == 0) { # Reference class
+      neg_log_lik_terms[i] <- log_denominators[i] # -log(P(Y_i=0)) = -log(1/Denom) = log(Denom)
+    } else if (Y[i] >= 1 && Y[i] <= K_event_classes) { # Event class j = Y[i]
+      # -log(P(Y_i=j)) = -log(exp(eta_ij)/Denom) = -(eta_ij - log(Denom)) = -eta_ij + log(Denom)
+      neg_log_lik_terms[i] <- -eta[i, Y[i]] + log_denominators[i]
+    } else {
+      # Handle unexpected Y values if necessary, or assume they are filtered out
+      neg_log_lik_terms[i] <- 0 # Or NA, or skip
+    }
+  }
+
+  # Total weighted negative log-likelihood
+  loss_value <- sum(weights * neg_log_lik_terms)
+
+
+  # --- 2. Calculate Penalty Term P(B) ---
+  penalty_value <- 0.0
+  if (lambda > 0) {
+    if (is.null(p_fit)) {
+      # If no reg_p, assume all p_fit predictors in B are penalized equally (factor 1)
+      # EXCEPT if B also includes an intercept that shouldn't be penalized by default.
+      # The paper sets w_k=0 for intercept and time.
+      # User must supply correct reg_p. For now, assume it means apply to all B.
+      warning("reg_p not supplied. Applying penalty to all coefficients in B. Specify reg_p=0 for unpenalized coefficients.")
+      B_reg <- B # Penalize all of B
+    } else {
+      # Create a matrix of penalty factors replicated for K_event_classes columns
+      # This allows element-wise multiplication if desired, or just use reg_p for row-wise norms
+      # The paper's formula lambda * sum_{s} w_s ( L2_row_s + L1_row_s )
+      # means we apply w_s to the sum of penalties for row s.
+
+      # We need to sum w_s * L1_norm_of_row_s and w_s * L2_norm_sq_of_row_s
+      # This implementation applies penalty to the whole B_reg, so reg_p
+      # effectively decide which rows constitute B_reg.
+      # Let's interpret reg_p as selecting which rows are in B_reg
+      # This means if reg_p[s] == 0, row s is NOT in B_reg.
+      # This is equivalent to reg_p logic if reg_p are 1 for first reg_p, then 0.
+      
+      # For simplicity, this R function will use reg_p logic if reg_p is just a scalar reg_p.
+      # If reg_p is a vector, it means w_k from paper.
+      # Let's assume for this function, like the C++, reg_p defines the block.
+      # The user of this R function would prepare B accordingly or this function needs reg_p.
+      # For now, I'll assume the passed B already has unpenalized rows set to zero if needed,
+      # or reg_p does the selection.
+      # The prompt's previous C++ code used `reg_p`.
+      # Equation 3.8 defines w_k, which is more flexible.
+      # Let's stick to the paper's Eq 3.8 with reg_p as w_k.
+      
+        reg_p <- rep(1, p_fit) # Default: penalize all rows
+      
+      # Calculate L1 and L2 components for each row, then weight by reg_p
+      l1_component_sum <- 0
+      l2_component_sum <- 0
+      # browser()
+      for (s in 1:p_fit) {
+          if (reg_p[s] > 0) { # Only if w_s > 0
+              l1_component_sum <- l1_component_sum + reg_p[s] * sum(abs(B[s,]))
+              l2_component_sum <- l2_component_sum + reg_p[s] * sum(B[s,]^2)
+          }
+      }
+      lambda_alpha_L1 <- lambda * alpha
+      lambda_alpha_L2 <- lambda * (1 - alpha) / 2.0 # Matches (1-alpha)/2 * beta_kj^2
+
+      penalty_value <- (lambda_alpha_L1 * l1_component_sum) + (lambda_alpha_L2 * l2_component_sum)
+    }
+  }
+
+  # --- 3. Return Total Objective ---
+  return(loss_value + penalty_value)
+}
 ```
 
 ```{r}
@@ -482,7 +614,7 @@ iter_sim <- tibble()
 for (i in 1) {
 n <- 1000
 p <- 20
-lambda = c(1e-10)
+lambda = c(0.001)
 data <- gen_data(n, p)
 alpha = 0.5
 unpen_cov = 2
@@ -499,17 +631,37 @@ MNlogistic3 <-  mtool::mtool.MNlogistic3(
     transpose = FALSE,
     lambda1 = lambda1, lambda2 = lambda2, 
     lambda3 = 0,
-    niter_inner_mtplyr = 2, maxit = 100,
+    learning_rate = 1e-1,
+    # niter_inner_mtplyr = 2,
+    maxit = 2000,
     tolerance = 1e-10
 )
 
-MNlogistic3$coefficients
+MNlogisticPCD <-  mtool::mtool.MNlogisticPCD(
+    X = data$X_train,
+    Y = data$Y_train,
+    offset = data$offset,
+    N_covariates = unpen_cov,
+    regularization = 'elastic-net',
+    transpose = FALSE,
+    lambda1 = lambda1, lambda2 = lambda2, 
+    lambda3 = 0,
+    learning_rate = 5,
+    # niter_inner_mtplyr = 2,
+    maxit = 2000,
+    tolerance = 1e-6
+)
 
-iter_vals <- map_dbl(MNlogistic3$coefficientshist, ~
+MNlogistic3$coefficients
+MNlogisticPCD$coefficients
+
+iter_vals <- map_dbl(MNlogisticPCD$coefficientshist, ~
                          objective(matrix(.x, 
                                           nrow = ncol(data$X_train)), 
                                    data$X_train, data$Y_train, data$offset,
                                    lambda, alpha, 20))
+
+   if (i == 1) iter_sim <- tibble()
 
 iter_sim <- tibble(obj_step = iter_vals, 
        iter = 1:length(iter_vals),
@@ -524,8 +676,8 @@ saveRDS(iter_sim, here::here( "notes_jmr", "data", "opt-example.rds"))
 iter_sim <- readRDS(here::here("notes_jmr", "data", "opt-example.rds"))
 
 iter_sim %>% 
-    ggplot(aes(iter, y = obj_step, group = sim)) +
-    geom_line(alpha = 0.3) +
+    ggplot(aes(iter, y = obj_step, group = as.character(sim))) +
+    geom_line(alpha = 0.8) +
     # geom_smooth(aes(group = 1)) +
     labs(y = "Obj. funct",
          x = "Iteration")
@@ -538,7 +690,7 @@ iter_sim %>%
 ```{r}
 if (save){
 
-for (i in 1:30) {
+for (i in 1) {
     
     seed <- as.integer(i)
     
@@ -615,7 +767,6 @@ for (i in 1:30) {
         momentum_gamma = .9,
         tolerance = 1e-1,
         learning_rate = 1e-4,
-        pos = T
     )})
     
     set.seed(the_seed)
@@ -632,6 +783,21 @@ for (i in 1:30) {
         maxit = 50,
         tolerance = 1e-4,
         learning_rate = 1e-3
+    )})
+    
+      set.seed(the_seed)
+    timePCD <- system.time({MNlogisticPCD <- mtool::mtool.MNlogisticPCD(
+        X = data$X_train,
+        Y = data$Y_train,
+        offset = data$offset,
+        N_covariates = unpen_cov,
+        regularization = 'elastic-net',
+        transpose = F,
+        lambda1 = lambda1, lambda2 = lambda2, 
+        lambda3 = 0,
+        maxit = 10,
+        tolerance = 1e-4,
+        learning_rate = 10
     )})
     
     
@@ -663,7 +829,13 @@ for (i in 1:30) {
                                                  nrow = ncol(data$X_train)), 
                                           data$X_train, data$Y_train, data$offset,
                                           lambda, alpha, 20))
-    
+     
+     iter_valsPCD <- map_dbl(MNlogisticPCD$coefficientshist, ~
+                                 objective(matrix(.x, 
+                                                  nrow = ncol(data$X_train)), 
+                                           data$X_train, data$Y_train, data$offset,
+                                           lambda, alpha, 20))
+     
     # MNlogistic$coefficients
     # MNlogisticExp$coefficients
         if (i == 1) iter_sim <- tibble()
@@ -692,7 +864,12 @@ for (i in 1:30) {
                          iter = 1:length(iter_valsSAHRA),
                          sim = i,
                          time = timeSAHRA[1],
-                         algorithm = "SAHRA")) %>% 
+                         algorithm = "SAHRA"),
+                  tibble(obj_step = iter_valsPCD, 
+                         iter = 1:length(iter_valsPCD),
+                         sim = i,
+                         time = timePCD[1],
+                         algorithm = "PCD")) %>% 
         bind_rows(iter_sim)
     saveRDS(iter_sim, here::here( "notes_jmr", "data", "opt-algorithms.rds"))
 }

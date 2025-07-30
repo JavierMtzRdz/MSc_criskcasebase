@@ -1,0 +1,57 @@
+---
+title: "Meeting Summary"
+author: "Participants: Dr. Cohen, Nirupama, Javier"
+date: 07/03/2025
+date-format: long
+number-sections: true
+number-depth: 4
+fig-dpi: 400
+format: 
+  pdf:
+    documentclass: article
+    header-includes: |
+      \usepackage[left=0.7in,right=0.7in,
+      top=0.7in,bottom=0.5in,footskip=0.7in]{geometry} 
+      \usepackage[document]{ragged2e}
+      \usepackage{amsmath,amsthm,amssymb,amsfonts}
+      \usepackage{mathtools}
+      % Using kp fonts
+      \usepackage{kpfonts}
+      \usepackage{dsfont}
+      \usepackage{centernot}
+      \usepackage[usenames,dvipsnames,table]{xcolor}
+      \usepackage{booktabs} % For improved table lines
+      \renewcommand{\arraystretch}{1} % Increase row spacing
+      \renewcommand\thefigure{\arabic{figure}}
+    fontsize: 12pt
+    colorlinks: true
+knitr:
+  opts_chunk:
+    comment: "#>"
+    message: FALSE
+    dev: "png"
+    fig.width: 8
+    fig.height: 4.5
+    fig.align: center
+editor_options: 
+  chunk_output_type: console
+bibliography: competing-risk.bib
+---
+## Discussion {.unnumbered}
+
+* **Variable Selection**. The improved algorithm is generally performing well, and in many cases, better than the competitor models.  However, there are still some settings where the model's variable selection is worse, particularly in terms of sensitivity.
+* **Post-Debiasing Issues**. There is a concern that the mean squared error increases after the de-biasing step. The leading hypothesis is that since the variable selection is not perfectly consistent, including false positives (even with small coefficients) inflates the error when their coefficients are de-biased. It was noted that post-selection inference methods work best under the assumption of consistent variable selection. 
+
+## Solutions & Next Steps {.unnumbered}
+
+* **SCAD Penalty**. To potentially improve variable selection and make a more distinct contribution to the paper, the team agreed to explore using the SCAD penalty. 
+* **Prediction Performance**. The focus for the paper will be on variable selection and prediction. The next immediate step is to evaluate the prediction performance of the current models (Brier score). 
+* **Case-Base Ratios**. Nirupama suggested that adjusting the case-base sampling ratio could improve performance. 
+* **Alternative Approaches**. Other ideas discussed included adjusting the alpha parameter in the ElasticNet (as it is currently set to 0.7, making it mostly a Lasso model) and applying a second, milder round of penalization instead of a non-penalized de-biasing step. 
+* There is a plan to meet with Sahir soon to discuss the paper.
+
+## Key Decisions {.unnumbered}
+
+* Generating prediction results from the experiments that have already been run will be prioritized.
+* Following the prediction results, the impact of different casebase ratios on model performance, starting with a setting that has room for improvement (e.g., setting four) will be analyzed. 
+* Explore incorporating the SCAD penalty into the model, probably creating a standalone function for exploration before integrating it into the spams file. 

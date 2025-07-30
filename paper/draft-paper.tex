@@ -1,6 +1,5 @@
 \documentclass[AMA,Times1COL]{WileyNJDv5} %STIX1COL,STIX2COL,STIXSMALL
 
-
 \articletype{Article Type}%
 
 \received{Date Month Year}
@@ -13,11 +12,12 @@
 
 \raggedbottom
 
+%%\bibliography{paper/refs/competing-risk}
 
-
+\usepackage{dsfont} 
 \begin{document}
 
-\title{Penalized Competing Risks Analysis using  casebase sampling}
+\title{cbSCRIP: Casebase Sampling for Sparse Competing Risk Prediction}
 
 \author[1]{Author One}
 
@@ -43,17 +43,9 @@
 
 \abstract[Abstract]{In biomedical studies, quantifying the association between prognostic genes and markers with time-to-event outcomes is crucial for predicting a patient's disease risk based on their specific covariate profile. Modeling competing risks is necessary, as patients may face multiple mutually exclusive events, such as death from different causes. However, current methods for competing risks analysis often yield coefficient estimates that are difficult to interpret, making it challenging to connect them to event rates. Additionally, the high dimensionality of genomic data, where the number of variables exceeds the number of subjects, presents a significant challenge.
 
-In this work, we propose a novel approach using an elastic-net penalized multinomial model within a casebased sampling framework to analyze competing risks survival data. We also introduce a two-step method called the de-biased case-base to improve the predictive performance regarding disease risk. Through a comprehensive simulation study that replicates biomedical data, we show that the casebase method is effective in variable selection and survival prediction, particularly in scenarios involving non-proportional hazards. Moreover, we highlight the flexibility of this approach in generating smooth-time incidence curves, which significantly improve the accuracy of patient risk estimation assessments.}
+In this work, we propose a novel approach using an elastic-net penalized multinomial model within a case-based sampling framework to analyze competing risks survival data. We also introduce a two-step method called the de-biased case-base to improve the predictive performance regarding disease risk. Through a comprehensive simulation study that replicates biomedical data, we show that the casebase method is effective in variable selection and survival prediction, particularly in scenarios involving non-proportional hazards. Moreover, we highlight the flexibility of this approach in generating smooth-time incidence curves, which significantly improve the accuracy of patient risk estimation assessments.}
 
 \keywords{keyword1, keyword2, keyword3, keyword4}
-
-\jnlcitation{\cname{%
-\author{Taylor M.},
-\author{Lauritzen P},
-\author{Erath C}, and
-\author{Mittal R}}.
-\ctitle{On simplifying ‘incremental remap’-based transport schemes.} \cjournal{\it J Comput Phys.} \cvol{2021;00(00):1--18}.}
-
 
 \maketitle
 
@@ -65,51 +57,74 @@ In this work, we propose a novel approach using an elastic-net penalized multino
 
 \section{INTRODUCTION}\label{sec1}
 
-In numerous clinical studies, a primary outcome frequently modeled is the time to an event of interest, or survival time during the study period. When every individual in a study experiences the event, various statistical methods can be applied effectively. However, analyzing survival data presents certain challenges: 1) Not all patients experience the event within the study timeframe, yet they remain at risk of doing so in the future, leaving their actual time to the event unknown. 2) Survival data are rarely normally distributed and often exhibit a skewed distribution.
+In modern biomarker studies, patients are often tracked over time while recording high-dimensional molecular, imaging, or clinical data. A main aim of such studies is to identify risk factors of a primary event of interest. However, alternative mutually exclusive events often exist. For example, among HIV-infected hemophiliacs, AIDS has historically been the leading cause of death, while deaths from non-AIDS-related conditions, such as liver disease and hemorrhagic complications, have emerged as important competing risks.\cite{AmoPerez-HoyosMoreno:2006} In classical survival analysis, outcomes other than the event of interest, such as loss to follow-up or end of the study, are treated as censored, under the assumption that censored observations carry no information about the future risk of the primary event. However, competing events that prevent the occurrence of the primary event may violate this assumption. Treating such events as censored can lead to biased estimates of the cumulative incidence of the event of interest. Alternatively, primary and competing events can be combined into a composite endpoint. However, this approach masks differences in clinical relevance and prevents attribution of covariate effects to specific outcomes. In these settings, competing risks models are essential to properly quantify the absolute risk and relative contribution of each event type. 
 
-Given these challenges, developing methods specifically tailored for survival data is essential. In typical survival or time-to-event analysis, the outcome variable indicates the time until one event of interest occurs. However, combined endpoints are a common extension that includes both the cause of interest and a competing risk. In this context, a competing risk is an event that prevents the primary event of interest from happening. For example, many medical studies consider 'disease-free survival,' defined as the time until either the recurrence of a disease or death (from a cause other than the disease), whichever occurs first. Here, while death due to the disease is our primary outcome, death from another cause is classified as a competing risk.
+The Cox proportional hazards (CPH) model is widely used in survival analysis to examine the association between covariates and the hazard of a single event of interest, without imposing a specific parametric form on the baseline hazard.\cite{Cox:1972} In the presence of competing risks, extensions of the CPH model typically involve fitting separate cause-specific hazard models for each event type.\cite{PrenticeKalbfleischPeterson:1978} Although this allows for estimation of covariate effects on each cause-specific hazard, the cumulative incidence function for the primary event still depends on the cause-specific hazards of all other events. To address this limitation, Fine and Gray introduced subdistribution hazards to model only the hazard associated with the cumulative incidence for the event of interest.\cite{FineGray:1999} While the Fine–Gray model estimates covariate effects on the subdistribution hazard of the primary event and the cumulative incidence function, it does not provide the effects on the cause-specific hazard among all individuals still at risk. Moreover, the estimated cumulative incidence probabilities may exceed 1 under certain covariate combinations, limiting their clinical applicability. See Saadati et al. \cite{SaadatiBeyersmannKopp-Schneider:2018} for a detailed discussion of these models.
 
-From a clinical perspective, the most important quantity for both clinicians and patients derived from survival analysis is the estimated risk of an event for patients with a particular covariate profile. This risk can be estimated through the cumulative incidence function (CIF), also known as absolute risk, which indicates the probability that a person at risk will experience the event of interest within a specified time frame.
+Another important limitation of many existing approaches is that they often rely on the proportional hazards assumption to estimate covariate effects using semi-parametric models. However, the flexibility of these semi-parametric models come at the cost of requiring separate estimation of the baseline hazard, resulting in stepwise survival estimates that can be difficult to interpret. Combining a case-base sampling framework with theoretical results from counting processes, Hanley and Miettinen proposed a fully parametric estimation approach based on logistic regression that produces smooth cumulative incidence functions over time.\cite{HanleyMiettinen:2009, Saarela:2016} This approach can be naturally extended to competing risks settings using a multinomial regression with an offset term, as implemented in the Casebase R package.\cite{BhatnagarTurgeonIslam:2022} Under this alternative paradigm, hazard functions are estimated using familiar tools from generalized linear modeling, providing smooth estimates over continuous time while preserving interpretability and flexibility.
 
-One widely used method for analyzing a single endpoint in survival analysis is the Cox Proportional Hazards model. Its flexibility comes from its semi-parametric formulation, enabling inference about how covariates influence the hazard function without restricting the response to a specific parametric family. However, this flexibility has a drawback: the baseline hazard is separated from the covariate effects, requiring separate estimation of the baseline hazard when calculating the cumulative incidence function. This results in stepwise survival risk estimates that can be difficult to interpret. Additionally, extending the Cox model to a competing risks scenario involves fitting separate models for each risk. This approach is limited because, although we can estimate cause-specific hazards, we cannot simultaneously estimate the cumulative incidence of the event of interest while accounting for competing risks.
+As high-dimensional data become more prevalent in competing risks studies, regularized methods have been proposed to select relevant variables associated with cause-specific hazards and cumulative incidence functions. A growing body of work has focused on extending penalized regression techniques, such as the LASSO, Elastic Net, and boosting, to the cause-specific hazard models,\cite{SaadatiBeyersmannKopp-Schneider:2018, HouParavatiHou:2018} while others have developed high-dimensional adaptations of the Fine–Gray model for subdistribution hazards.\cite{BinderAllignolSchumacher:2009, HouBradicXu:2019} Despite increasing attention to high-dimensional modeling in competing risks settings, there remains limited work addressing the joint modeling of cause-specific hazards and cumulative incidence functions in high-dimensional settings. Recent reviews of these approaches highlight both methodological advances and remaining challenges.\cite{Monterrubio-GomezConstantine-CookeVallejos:2024, HouXu:2018} 
 
-To overcome these limitations, the Fine-Gray model was introduced as an alternative, directly modelling the impact of covariates on the cumulative incidence function. However, when assessing whether a particular risk factor is associated with the rate of outcome occurrence among event-free individuals, cause-specific hazards remain relevant, which this model does not readily provide. Furthermore, certain combinations of covariates in the Fine-Gray model can produce cumulative incidence probability estimates exceeding 1. In fact, in modelling competing risks, existing approaches typically focus on cause-specific hazards or cumulative incidence functions. Since comprehensive competing risks survival analysis requires both, estimating one from the other with current models is not straightforward.
+Most existing approaches focus on only one component of the risk structure and do not readily allow estimation of one from the other, which can limit interpretability and hinder a comprehensive understanding of event dynamics. In this paper, we build on the case-base sampling framework to propose an alternative approach, cbSCRIP, for estimating sparse competing risk models aimed at prediction. Our parametric method, based on regularized multinomial regression, models the case-specific hazards and thus provides smooth estimates of cumulative incidence functions. It also offers a flexible framework for scalable variable selection in high-dimensional settings and the modelling of time-varying covariates. We demonstrate that cbSCRIP exhibits strong variable selection performance in both low- and high-dimensional settings, while effectively predicting cumulative risk. These properties make it a viable and clinically useful option for the analysis of survival data with competing events.
 
-As survival data, particularly high-dimensional data, become more prevalent, there is a growing need for a competing risks model that can effectively handle cause-specific hazards, produce smooth and interpretable estimates of the cumulative incidence function, and be adaptable for high-dimensional data settings and scenarios involving time-varying covariates. Therefore, we propose using a multinomial model combined with casebase sampling to fit fully parametric hazard models. This approach provides smooth hazard and cumulative incidence function estimates, and our application of multinomial regression enables access to the desirable properties of the generalized linear model family, including regularisation-based variable selection.
-
-This paper shows that the multinomial model with casebase sampling exhibits strong variable selection in both low- and high-dimensional data, while effectively predicting cumulative risk, making it a viable option for comprehensive competing risks analysis. The structure of this paper includes an explanation of the casebase framework and its multinomial implementation, along with the debiasing step. It then presents the results of our simulation experiments, focusing on variable selection and prediction performance, and explores the model's ability to estimate the cumulative incidence function by debiasing the casebase model. Subsequently, this model is applied to the xxxx dataset to evaluate its performance in real-world medical data. Finally, the paper discusses the limitations, potential extensions of the approach, and suggestions for future research. 
+The rest of the paper is organized as follows. Section 2 introduces the case-base framework and its extension to multinomial regression for competing risks, including the debiasing procedure used to recover accurate and smooth cumulative incidence estimates. Section 3 presents results from simulation studies evaluating variable selection, prediction performance, and the quality of cumulative incidence estimation. Section 4 applies the proposed method to the [XXXX] dataset to assess its performance on real-world medical data. Finally, Section 5 discusses the limitations of the approach, potential extensions, and directions for future research.
 
 
 \section{METHODS}\label{sec2}
 
-\subsection{Casebase Framework}
+\subsection{Case-base Sampling in Competing Risk Analysis}
 
-In a competing risks setting, we model the occurrence of different event types using counting processes. Let $N_{0j;i}(t)$ be the counting process for individual $i$ and event type $j$. This process is equal to 1 if individual $i$ transitions from a starting state (state 0) to event state $j$ within the time interval $[0, t]$, and 0 otherwise. The history of the process for individual $i$ up to time $t$ is denoted by $\mathcal{H}_{i}(t-)$. The expected differential change in the counting process relates to the cause-specific hazard function, $\alpha_{ij}(t)$, through the following expression
-$$E[dN_{0j;i}(t) | \mathcal{H}_{i}(t-)] = I(T_i \ge t, J_i = j) \alpha_{ij}(t)dt.$$
+In revising established ideas and concepts in epidemiology, Miettinen proposed in his 1999 article\cite{Miettinen:1999} and discussed further in \textit{Epidemiology: Quo Vadis},\cite{Miettinen:2004} the replacement of the long-standing concepts of "cohort" and "case-control study" with the alternative "study base" and "case-base" in etiologic study designs. The case-base sampling framework considers a finite sample of person-moments, each defined as a "person" coordinate $i$ at a specific point in time $t$, from the study base, which conceptually consists of an infinite number of such person-moments spanning all observed follow-up experiences. The fundamental idea of case-base sampling is to generate a "case series" by sampling all person-moments when the event occurred, and a "base series" by sampling person-moments when individuals were at risk of the event from the study base.\citep{HanleyMiettinen:2009} This method of representative sampling differs from the risk-set sampling used in Cox regression and aims to capture the entire baseline hazard. 
 
-The casebase sampling framework was formally proposed for fitting smooth-in-time functions. It extends methods used in case-control studies. This framework considers an entire study base, which is the total of all individual follow-up times, or person-time. The study base consists of person-moments. A person-moment is defined as a specific point in time, $t$, and the individual's corresponding prognostic value at that time.
+Extending ideas from counting processes, Hanley and Miettinen showed that, under the case-base sampling framework, the estimation of hazard functions in continuous time can be reformulated as a logistic regression problem.\cite{HanleyMiettinen:2009} An important benefit of this approach is its capacity to directly estimate the hazard function, which then enables the derivation of smooth-in-time survival and cumulative incidence functions. Saarela and Arjas extended this approach to competing risk settings.\cite{SaarelaArjas:2015} They showed that using separate case series for each event type and an efficient sampling procedure for generating the base series in the presence of competing events, the conditional likelihood contributions of each individual has the form of a multinomial regression with an offset parameter.
 
-From the study base, two series are generated: a case series and a base series. The case series includes all person-moments where an event of interest occurred. The base series is made up of a representative sample of person-moments, called controls, taken from the study base. These person-moments are sampled by first selecting an individual $i$ with probability $\phi_{i}=B_{i}/B$, where $B_{i}$ is the total person-time contributed by individual $i$, and $B$ is the total person-time in the study. A person-moment $b_j$ is then sampled uniformly from that individual's follow-up time, a process that can be modelled as $b_{j}\sim \text{Unif}(0,B_i)$. An individual might contribute multiple person-moments to the base series.
+Beyond the broader philosophical discussion of this alternative paradigm, leveraging the well-established framework of generalized linear models to fit flexible hazard regression models offers a major methodological advantage for competing risk analysis. This methodological shift is particularly well suited to high-dimensional settings.\cite{BhatnagarTurgeonIslam:2022} 
 
-The fundamental idea of casebase sampling is comparing person-moments when events occurred (the cases) with person-moments when individuals were at risk of the event (the bases). This method of representative sampling differs from the risk-set sampling used in Cox regression and aims to capture the entire baseline hazard. A key benefit of this approach is its capacity to directly estimate cause-specific hazard functions, which then enables the derivation of smooth-in-time survival and cumulative incidence functions.
+\subsection{Notation and Multinomial Parameterization}
 
-To estimate the parameters, we revisit the counting process framework. The cause-specific hazard function for event $j$ and individual $i$ is parameterized using a vector of coefficients, $\beta_{j}$, and time, $t$, denoted as $\alpha_{ij}(t;\beta_{j})$. According to the relationship established for counting processes, the differential change in the cause-specific hazard functions for individual $i$ at time-to-event $T_i$ satisfies
-$$\alpha_{ij}(t;\beta_{j})dt=E[dN_{0j;i}(t)|\mathcal{H}_{i}(t-)]$$
-This provides the foundation for building the likelihood and estimating functions for the model parameters.
+To define notation and provide essential background, in this Section, we present some of the main theoretical results on the combined framework of case-base sampling and counting processes. We refer to previous contributions in this topic for additional details (e.g., \cite{SaarelaArjas:2015, AalenBorganGjessing:2008, ArjasHaara:1987}).
 
-\subsection{Multinomial Parameterization, Regularization and Optimization}
+Counting processes are stochastic processes used to model the occurrence of events over time. For simplicity, we focus on competing risk studies with two causes of death. In this context, a counting process $N_{ij}(t) \in \{0,1\}$ indicates whether the event type $j$ has occurred for individual $i$ by time $t$, where $i \in \mathcal{C} \equiv \{1, \ldots, n\}$ be the set of individuals who are followed up to time $\tau$, $t \in [0, \tau]$, and $j = 0,1,2$. Specifically, $j = 1$ indicates a primary event of interest, $j = 2$ indicates a competing event, and $j = 0$ indicates type I censoring due to the end of the study (extensions to the general case of independent censoring have been developed).\cite{Saarela:2016} In addition to the outcome event, let $X_i = (X_{i1}, \ldots, X_{ip})$ be a set of covariates with baseline characteristics (extensions to more general settings have also been proposed, e.g., Saarela (2016)\cite{Saarela:2016}).
+
+In stochastic process theory, counting processes are defined relative to the history, which encodes the accumulated information available up to time $t$ for individual $i$. The past is usually modeled as a $\sigma$-algebra of events, which may capture not only the history of the observed process but also external covariates or additional information known at the time. For simplicity, we will refer to this as "past" (e.g., for a similar approach and for additional details).\cite{AalenBorganGjessing:2008, BhatnagarTurgeonIslam:2022, SaarelaArjas:2015}
+
+The framework of counting processes allows event intensities (i.e., hazard functions) to be rigorously defined as conditional expectations given the past. Let $dN_{ij}(t) = 1$ be the differential change of the counting process $N_ij$ in the small time interval $[t, t + dt)$. Assuming that at most one event may occur in such interval, we can define the cause-specific hazard function $\lambda_{ij}(t)$ as the conditional probability that the $i$th individual experiences the event $j$ in $[t, t + dt)$, given the observed information before that interval, divided by the length of the interval,
+
+$$
+\lambda_{ij}(t)\,dt = P(dN_{ij}(t) = 1 \mid \text{past}).
+$$
+
+In the context of absorbing event states (e.g., death), $dN_{ij}(t)$ can only take values $0$ and $1$, thus, we can also relate the cause-specific hazard function, $\lambda_{ij}(t)$, to the (conditional) expected differential change in the counting process through the following expression,\cite{Saarela:2016} 
+
+$$
+\lambda_{ij}(t)\,dt = E(dN_{ij}(t) \mid \text{past}).
+$$
+
+If the hazard function $\lambda_{ij}(t, \boldsymbol{\theta}_j)$ is parametrized in terms of $\boldsymbol{\theta}_j$, where $\boldsymbol{\theta}_j \in \mathcal{R}^{p+1}$ is a vector of coefficients, we can estimate these parameters using a maximum likelihood approach. While likelihood-based inference in continuous-time survival models is formally grounded in the relationship between the hazard function and the conditional expectation of the counting process, direct evaluation of the likelihood function involves integrals over time that are computationally intensive. Instead, we can leverage the case–base sampling framework, which conditions on sampled person-moments to derive a more tractable form of the likelihood\cite{SaarelaArjas:2015}. 
+
+In case–base sampling, the case series for the event $j$ consists to all person-moments from the study base at which the outcome event $j$ occur, i.e., $\mathrm{d}N_{ij}(t) = 1$, for $j = {1,2}$. Different sampling mechanisms characterized by an intensity functions $\rho_i(t)$ have been proposed to form a base series. Let $R_i(t) \in \{0, 1, 2, \ldots\}$ be the counting process for the person-moments of individual $i$ in the base case (see Saarela and Arjas (2015) for details on different sampling mechanism\cite{SaarelaArjas:2015}). Thus, the process $Q_i(t) = N_{i1}(t) + N_{i2}(t) + R_i(t)$ counts both the case and base series person–moments contributed by individual $i$.
+
+Under this approach, the likelihood contribution from each sampled person-moment can be written as:
+
+$$
+L(\theta) = \prod_{i=1}^n \prod_{t \in [0, \tau]} \left( \frac{\prod_{j=1}^{2}\lambda_{ij}(t; \theta)^{dN_{ij}(t)}}{\rho_i(t) + \sum_{j=1}^{2}\lambda_{ij}(t; \theta)} \right)^{dQ_{ij}(t)}.
+$$
+
+This expression is similar to the likelihood function for multinomial regression with an offset term $\log(1/\rho_i(t))$, enabling the use of optimization algorithms developed for generalized linear models to estimate the parameters of the cause-specific hazards. In this paper, we integrate this formulation with regularization techniques and develop an efficient algorithm to scale up competing risk analyses in high-dimensional settings involving large numbers of covariates.
+
+\subsection{Regularization and Optimization}
 
 We can construct a multinomial logistic model for the casebase likelihood. We use $Y_{i}$ to denote a categorical response variable. Let us define $Y_{i}$ to have three levels for the case of two competing events, i.e., {0,1,2}, where the total number of competing events is two. The likelihood function can be written as:
 $$\log\left(\frac{\Pr(Y=j|X_i)}{\Pr(Y=0|X_i)}\right)$$ where class 0, i.e., the censored individuals, serves as the reference class. The likelihood is defined for a set of covariates $X_{i}$ for individual $i$.
 
 In terms of optimizing a penalized likelihood, the glmnet package has implemented fast algorithms for several generalized linear models, including multinomial regression with the elastic-net family penalty. However, the glmnet package uses a symmetric parameterization of the multinomial model. This parameterization estimates the relative differences between classes rather than the absolute probabilities for each class, resulting in the constant offset term not being fitted. Since the case base approach relies on the constant offset of the intensity function, we need a penalized model using the multinomial logistic parameterization. Developing a function to fit and tune this penalized model is a key contribution of this work.
 
-The penalized multinomial logistic regression is fitted using accelerated stochastic variance reduced gradient descent (ASVRG), as this algorithm shows fast convergence for high-dimensional datasets with a larger number of predictors than observations ($p> n$). This accelerated method combines SVRG's variance reduction with momentum to speed up convergence (@DriggsEhrhardtSchonlieb:2022). Like SVRG, this algorithm begins with a full-batch gradient computation. However, instead of relying solely on stochastic updates, it employs a sequence of extrapolated points, constructed as a weighted combination of the current and previous iterations.
+The penalized multinomial logistic regression is fitted using accelerated stochastic variance reduced gradient descent (ASVRG), as this algorithm shows fast convergence for high-dimensional datasets with a larger number of predictors than observations ($p> n$). This accelerated method combines SVRG's variance reduction with momentum to speed up convergence.\cite{DriggsEhrhardtSchonlieb:2022} Like SVRG, this algorithm begins with a full-batch gradient computation. However, instead of relying solely on stochastic updates, it employs a sequence of extrapolated points, constructed as a weighted combination of the current and previous iterations.
 
-Here, we denote $l(\beta)$ as the joint likelihood across all individuals $i=1,...,n$ and causes $j=1,2$, i.e., $\sum_{i=1}^{n}\sum}_{j=1}^{2}\log(\frac{\text{Pr}(Y_{i}=j|X_{i})}{\text{Pr}(Y_{i}=0|X_{i})})$. For covariates $k\in\{1,...,p\}$, we can estimate the coefficient matrix $eta$ as
+Here, we denote $l(\beta)$ as the joint likelihood across all individuals $i=1,...,n$ and causes $j=1,2$, i.e., $\sum_{i=1}^{n}\sum_{j=1}^{2}\log(\frac{\text{Pr}(Y_{i}=j|X_{i})}{\text{Pr}(Y_{i}=0|X_{i})})$. For covariates $k\in\{1,...,p\}$, we can estimate the coefficient matrix $\boldsymbol{\beta}$ as
 $$\hat{\beta}=\text{arg max}_{\beta}\{l(\beta)+\lambda\sum_{k=1}^{p}w_{k}((\frac{1-\phi}{2})\sum_{j=1}^{2}\beta_{kj}^{2}+\phi\sum_{j=1}^{2}|\beta_{kj}|)\}.$$
 
-$\phi$ is the mixing parameter between the LASSO and ridge penalties. Setting $\phi=1$ and $\phi=0$ corresponds to the LASSO and ridge penalties, respectively. $w_{k}$ represents the penalty factor for the $k^{th}$ covariate, allowing parameters to be penalized differently. In this work, the penalty factor for the intercept and for time is set to 0, so they are unpenalized and always included in the model. Solving for the coefficients $eta$ will produce a matrix of size $(p+1)\times2$, where the $j^{th}$ column corresponds to the coefficients for cause j, for $j=1,2$.
+$\phi$ is the mixing parameter between the LASSO and ridge penalties. Setting $\phi=1$ and $\phi=0$ corresponds to the LASSO and ridge penalties, respectively. $w_{k}$ represents the penalty factor for the $k^{th}$ covariate, allowing parameters to be penalized differently. In this work, the penalty factor for the intercept and for time is set to 0, so they are unpenalized and always included in the model. Solving for the coefficients $\boldsymbol{\beta}$ will produce a matrix of size $(p+1)\times2$, where the $j^{th}$ column corresponds to the coefficients for cause j, for $j=1,2$.
 
 A cross-validation function was also implemented to fine-tune the shrinkage parameter $\lambda$. The tuning relies on the multinomial deviance as the measure of model goodness-of-fit, shown below:
 $$-2\sum_{i=1}^{n}\sum_{j=1}^{2}\log(\frac{\text{Pr}(Y_{i}=j|X_{i})}{\text{Pr}(Y_{i}=0|X_{i})}).$$
@@ -230,7 +245,8 @@ None reported.
 
 The authors declare no potential conflict of interests.
 
-\bibliography{wileyNJD-AMA}
+
+\bibliography{paper/refs/competing-risk}
 
 
 \bmsection*{Supporting information}
@@ -454,17 +470,7 @@ Pellentesque eget lectus. Proin eu metus. Sed porttitor. In hac habitasse platea
 mi mi, lacinia sit amet, placerat et, mollis vitae, dui. Sed ante tellus, tristique ut, iaculis eu, malesuada ac, dui.
 Mauris nibh leo, facilisis non, adipiscing quis, ultrices a, dui.
 
-\nocite{*}% Show all bib entries - both cited and uncited; comment this line to view only cited bib entries;
-
-
-\bmsection*{Author Biography}
-
-\begin{biography}{\includegraphics[width=76pt,height=76pt,draft]{empty}}{
-{\textbf{Author Name.} Please check with the journal's author guidelines whether
-author biographies are required. They are usually only included for
-review-type articles, and typically require photos and brief
-biographies for each author.}}
-\end{biography}
+%%\nocite{*}% Show all bib entries - both cited and uncited; comment this line to view only cited bib entries;
 
 
 \end{document}

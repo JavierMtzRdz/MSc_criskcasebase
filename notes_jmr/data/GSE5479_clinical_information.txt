@@ -1,0 +1,809 @@
+sample name	replicate#	Country of origin	Disease stage	WHO grade	tumor konfiguration	carcinoma in situ (CIS) status	Gender	AGE
+01001T_E (45g2)	1	Spain	pTa	LOW	papillary	not determined	Male	64
+01001T_E (46g2)	2	Spain	pTa	LOW	papillary	not determined	Male	64
+01002_E (39g1)	1	Spain	pT2	HIGH	papillary + solid	not determined	Male	63
+01002_E (40g1)	2	Spain	pT2	HIGH	papillary + solid	not determined	Male	63
+01005T_E (47g1)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	54
+01005T_E (48g1)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	54
+01008T_E (43g1)	1	Spain	pTa	LOW	papillary	not determined	Male	65
+01008T_E (44g1)	2	Spain	pTa	LOW	papillary	not determined	Male	65
+01009_E (39g2)	1	Spain	pT1	HIGH	papillary	not determined	-	-
+01009_E (40g2)	2	Spain	pT1	HIGH	papillary	not determined	-	-
+01012T_E (45g1)	1	Spain	pT2	HIGH	solid	not determined	Female	66
+01012T_E (46g1)	2	Spain	pT2	HIGH	solid	not determined	Female	66
+01013T_E (47g2)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	68
+01013T_E (48g2)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	68
+01015T_E (43g2)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	50
+01015T_E (44g2)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	50
+01016T_E (51g1)	1	Spain	pTa	LOW	papillary	not determined	Male	68
+01016T_E (52g1)	2	Spain	pTa	LOW	papillary	not determined	Male	68
+01017T_E (51g2)	1	Spain	pT4a	HIGH	papillary	not determined	Male	74
+01017T_E (52g2)	2	Spain	pT4a	HIGH	papillary	not determined	Male	74
+01018T_E (53g1)	1	Spain	pTa	LOW	papillary	not determined	Male	76
+01018T_E (54g1)	2	Spain	pTa	LOW	papillary	not determined	Male	76
+01019T_E (53g2)	1	Spain	pT2	LOW	papillary	not determined	Male	72
+01019T_E (54g2)	2	Spain	pT2	LOW	papillary	not determined	Male	72
+01020T_E (55g1)	1	Spain	pT1	HIGH	papillary	not determined	-	-
+01020T_E (56g1)	2	Spain	pT1	HIGH	papillary	not determined	-	-
+01022T_E (49g1)	1	Spain	pT2+pTIS	HIGH	papillary + solid	CIS	Female	72
+01022T_E (50g1)	2	Spain	pT2+pTIS	HIGH	papillary + solid	CIS	Female	72
+01025_E (41g1)	1	Spain	pT2	HIGH	solid	not determined	Male	74
+01025_E (42g1)	2	Spain	pT2	HIGH	solid	not determined	Male	74
+01027_E (63g1)	1	Spain	pTa	LOW	papillary	not determined	Male	66
+01027_E (64g1)	2	Spain	pTa	LOW	papillary	not determined	Male	66
+01028T_E (55g2)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	74
+01028T_E (56g2)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	74
+01029T_E (57g1)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	74
+01029T_E (73g1)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	74
+01030T_E (57g2)	1	Spain	pTa	LOW	papillary	not determined	Male	66
+01030T_E (58g2)	2	Spain	pTa	LOW	papillary	not determined	Male	66
+01031T_E (59g1)	1	Spain	pTa	LOW	papillary	not determined	Male	54
+01031T_E (60g1)	2	Spain	pTa	LOW	papillary	not determined	Male	54
+01032T_E (59g2)	1	Spain	pT1	HIGH	papillary	CIS	Male	68
+01032T_E (60g2)	2	Spain	pT1	HIGH	papillary	CIS	Male	68
+01033T_E (61g1)	1	Spain	pTa	LOW	papillary	not determined	Male	41
+01033T_E (62g1)	2	Spain	pTa	LOW	papillary	not determined	Male	41
+01034T_E (61g2)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	50
+01034T_E (62g2)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	50
+01035_E (63g2)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	56
+01035_E (64g2)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	56
+01037_E (65g1)	1	Spain	pTa	LOW	papillary	not determined	Female	65
+01037_E (66g1)	2	Spain	pTa	LOW	papillary	not determined	Female	65
+01040_E (65g2)	1	Spain	pT2	HIGH	papillary	not determined	Male	57
+01040_E (66g2)	2	Spain	pT2	HIGH	papillary	not determined	Male	57
+01041_E (67g1)	1	Spain	pT2	HIGH	solid	not determined	Male	74
+01041_E (68g1)	2	Spain	pT2	HIGH	solid	not determined	Male	74
+01044_E (69g1)	1	Spain	pTa	HIGH	papillary	not determined	Male	58
+01044_E (70g1)	2	Spain	pTa	HIGH	papillary	not determined	Male	58
+01046_E (71g1)	1	Spain	pT2	HIGH	-	not determined	-	-
+01046_E (72g1)	2	Spain	pT2	HIGH	-	not determined	-	-
+01048_E (71g2)	1	Spain	pT1	HIGH	papillary	not determined	-	-
+01048_E (72g2)	2	Spain	pT1	HIGH	papillary	not determined	-	-
+10054_S (62g2)	1	Sweden	pTa	HIGH	papillary	not determined	Male	58
+10054_S (63g2)	2	Sweden	pTa	HIGH	papillary	not determined	Male	58
+1008-1 (57g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	69
+1008-1 (58g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	69
+1010-1 (30g2)	1	Denmark	pT1b	HIGH	papillary	CIS	Female	69
+1010-1 (31g2)	2	Denmark	pT1b	HIGH	papillary	CIS	Female	69
+1012-1 (16g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	73
+1012-1 (17g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	73
+1017-1 (65g2)	1	Denmark	pT1b	HIGH	papillary	CIS	Male	79
+1017-1 (66g2)	2	Denmark	pT1b	HIGH	papillary	CIS	Male	79
+102_F (22g2)	1	France	pT1a	HIGH	papillary	not determined	Male	 95 
+102_F (23g2)	2	France	pT1a	HIGH	papillary	not determined	Male	 95 
+1022-1 (8g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	61
+1022-1 (9g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	61
+1024-1 (47G1)	1	Denmark	pT1b	HIGH	papillary + solid	CIS	Male	63
+1024-1 (48G1)	2	Denmark	pT1b	HIGH	papillary + solid	CIS	Male	63
+1031-1 (57g2)	1	Denmark	pT1	HIGH	papillary	CIS	Male	68
+1031-1 (58g2)	2	Denmark	pT1	HIGH	papillary	CIS	Male	68
+1033 (69g1) F	1	France	pT2	HIGH	solid	not determined	 Male 	 49 
+1033 (70g1) F	2	France	pT2	HIGH	solid	not determined	 Male 	 49 
+1034-2 (8g2)	1	Denmark	pT1	HIGH	papillary	CIS	Female	74
+1034-2 (9g2)	2	Denmark	pT1	HIGH	papillary	CIS	Female	74
+1036-1 (59g1)	1	Denmark	pT1a	HIGH	papillary	CIS	Male	79
+1036-1 (60g1)	2	Denmark	pT1a	HIGH	papillary	CIS	Male	79
+10386_S (14g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	76
+10386_S (16g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	76
+10395_S (43g1)	1	Sweden	pT1	HIGH	solid	not determined	Male	79
+10395_S (44g1)	2	Sweden	pT1	HIGH	solid	not determined	Male	79
+1047-1 (32g1)	1	Denmark	pT1a	HIGH	papillary	CIS	Male	76
+1047-1 (33g1)	2	Denmark	pT1a	HIGH	papillary	CIS	Male	76
+105_F (24g1)	1	France	pT1a	HIGH	papillary	not determined	Male	 55 
+105_F (25g1)	2	France	pT1a	HIGH	papillary	not determined	Male	 55 
+10530_S (19g2)	1	Sweden	pTa	LOW	papillary	not determined	Male	63
+10530_S (20g2)	2	Sweden	pTa	LOW	papillary	not determined	Male	63
+1053-1 (41g1)	1	Denmark	pTa	LOW	papillary	CIS	Male	78
+1053-1 (42g1)	2	Denmark	pTa	LOW	papillary	CIS	Male	78
+1056-4_DK (18g1)	1	Denmark	pT1	HIGH	papillary	CIS	Female	59
+1056-4_DK (19g1)	2	Denmark	pT1	HIGH	papillary	CIS	Female	59
+1058-2 (28g1)	1	Denmark	pTa	LOW	papillary	no cis	Female	67
+1058-2 (29g1)	2	Denmark	pTa	LOW	papillary	no cis	Female	67
+1060-1 (63g1)	1	Denmark	pTa	HIGH	papillary	no cis	Male	59
+1060-1 (64g1)	2	Denmark	pTa	HIGH	papillary	no cis	Male	59
+1065-1 (49g2)	1	Denmark	pT1	HIGH	papillary	no cis	Male	83
+1065-1 (50g2)	2	Denmark	pT1	HIGH	papillary	no cis	Male	83
+1066-1 (41G1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	80
+1066-1 (42G1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	80
+107_F (24g2)	1	France	pT3a	HIGH	papillary+solid	not determined	Male	 56 
+107_F (25g2)	2	France	pT3a	HIGH	papillary+solid	not determined	Male	 56 
+1073-1 (10g1)	1	Denmark	pT1	HIGH	papillary	no cis	Female	65
+1073-1 (11g1)	2	Denmark	pT1	HIGH	papillary	no cis	Female	65
+1077-1 (59g2)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	66
+1077-1 (60g2)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	66
+1078-1 (32g1)	1	Denmark	pT4a/pT2	HIGH	papillary + solid	not determined	Male	71
+1078-1 (33g1)	2	Denmark	pT4a/pT2	HIGH	papillary + solid	not determined	Male	71
+1082-1_DK (26g2)	1	Denmark	pT1a	HIGH	papillary	CIS	Female	81
+1082-1_DK (27g2)	2	Denmark	pT1a	HIGH	papillary	CIS	Female	81
+1083-1 (51g1)	1	Denmark	pTa	LOW	papillary	no cis	Female	40
+1083-1 (52g1)	2	Denmark	pTa	LOW	papillary	no cis	Female	40
+1086-1 (65g1)	1	Denmark	pTa	HIGH	papillary	no cis	Male	74
+1086-1 (66g1)	2	Denmark	pTa	HIGH	papillary	no cis	Male	74
+1093-1 (23G1)	1	Denmark	pTa	HIGH	papillary	no cis	Male	81
+1093-1 (24g1)	2	Denmark	pTa	HIGH	papillary	no cis	Male	81
+1105-1 (65g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	57
+1105-1 (66g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	57
+1117-1 (51g2)	1	Denmark	pT2	HIGH	solid	CIS	Male	72
+1117-1 (52g2)	2	Denmark	pT2	HIGH	solid	CIS	Male	72
+112_F (30g1)	1	France	pT2	HIGH	papillary+solid	not determined	Male	 49 
+112_F (31g1)	2	France	pT2	HIGH	papillary+solid	not determined	Male	 49 
+112-10 (45g1)	1	Denmark	pTa	HIGH	papillary	CIS	Female	72
+112-10 (46g1)	2	Denmark	pTa	HIGH	papillary	CIS	Female	72
+113_F (26g1)	1	France	pTa	HIGH	papillary	not determined	Male	 71 
+113_F (27g1)	2	France	pTa	HIGH	papillary	not determined	Male	 71 
+1131-1 (41G2)	1	Denmark	pTa	PUNLMP	papillary	no cis	Male	63
+1131-1 (42G2)	2	Denmark	pTa	PUNLMP	papillary	no cis	Male	63
+1134-1 (51g2)	1	Denmark	pT1b	HIGH	papillary	no cis	Male	81
+1134-1 (52g2)	2	Denmark	pT1b	HIGH	papillary	no cis	Male	81
+1145-1 (32g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	79
+1145-1 (33g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	79
+1146-1 (23g2)	1	Denmark	pTa	HIGH	papillary	no cis	Male	53
+1146-1 (24g2)	2	Denmark	pTa	HIGH	papillary	no cis	Male	53
+1158-1 (67g1)	1	Denmark	pTa	PUNLMP	papillary	no cis	Male	72
+1158-1 (68g1)	2	Denmark	pTa	PUNLMP	papillary	no cis	Male	72
+11624_S (6g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	77
+11624_S (7g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	77
+1164-1 (53g1)	1	Denmark	pT2	HIGH	papillary + solid	no cis	Male	79
+1164-1 (54g1)	2	Denmark	pT2	HIGH	papillary + solid	no cis	Male	79
+11678_S (61g1)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	74
+11678_S (62g1)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	74
+1182-1 (16g2)	1	Denmark	pT1a	HIGH	papillary	CIS	Male	45
+1182-1 (17g2)	2	Denmark	pT1a	HIGH	papillary	CIS	Male	45
+1189-1 (67g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	77
+1189-1 (68g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	77
+1191-1 (34g1)	1	Denmark	pT2	HIGH	solid	no cis	Male	76
+1191-1 (35g1)	2	Denmark	pT2	HIGH	solid	no cis	Male	76
+1195 (70g2) F	1	France	pT2	HIGH	solid	not determined	 Male 	 70 
+1195 (71g2) F	2	France	pT2	HIGH	solid	not determined	 Male 	 70 
+1206-1 (25g1)	1	Denmark	pT1a	LOW	papillary	no cis	Male	62
+1206-1 (26g1)	2	Denmark	pT1a	LOW	papillary	no cis	Male	62
+1209-1 (28g2)	1	Denmark	pT1a	HIGH	papillary	CIS	Male	49
+1209-1 (29g2)	2	Denmark	pT1a	HIGH	papillary	CIS	Male	49
+1210-1 (69g1)	1	Denmark	pTa	PUNLMP	papillary	no cis	Male	66
+1210-1 (70g1)	2	Denmark	pTa	PUNLMP	papillary	no cis	Male	66
+1211-1 (25g2)	1	Denmark	pTa	LOW	papillary	no cis	Female	55
+1211-1 (26g2)	2	Denmark	pTa	LOW	papillary	no cis	Female	55
+1211-2 (10g2) F	1	France	pT3	HIGH	solid	not determined	 Male 	 59 
+1211-2 (9g2) F	2	France	pT3	HIGH	solid	not determined	 Male 	 59 
+1224-1 (30g1)	1	Denmark	pT1a	HIGH	papillary	CIS	Female	73
+1224-1 (31g1)	2	Denmark	pT1a	HIGH	papillary	CIS	Female	73
+12324_S (62g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	59
+12324_S (63g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	59
+1238-1 (30g2)	1	Denmark	pTa	HIGH	papillary	no cis	Male	70
+1238-1 (31g2)	2	Denmark	pTa	HIGH	papillary	no cis	Male	70
+1250-1 (69g2)	1	Denmark	pTa	PUNLMP	papillary	no cis	Female	65
+1250-1 (70g2)	2	Denmark	pTa	PUNLMP	papillary	no cis	Female	65
+1252-1 (71g1)	1	Denmark	pT1b	HIGH	papillary	CIS	Male	66
+1252-1 (72g1)	2	Denmark	pT1b	HIGH	papillary	CIS	Male	66
+1255-1 (71g2)	1	Denmark	pTa	HIGH	papillary	no cis	Female	68
+1255-1 (72g2)	2	Denmark	pTa	HIGH	papillary	no cis	Female	68
+1257-1 (53g2)	1	Denmark	pT1b	HIGH	solid	CIS	Male	70
+1257-1 (54g2)	2	Denmark	pT1b	HIGH	solid	CIS	Male	70
+1259-1 (32g1)	1	Denmark	pT1b	HIGH	papillary	no cis	Male	72
+1259-1 (33g1)	2	Denmark	pT1b	HIGH	papillary	no cis	Male	72
+1264-1 (53g1)	1	Denmark	pTa	HIGH	papillary	no cis	Female	66
+1264-1 (54g1)	2	Denmark	pTa	HIGH	papillary	no cis	Female	66
+1280-1 (73g1)	1	Denmark	pTa	HIGH	papillary	no cis	Male	62
+1280-1 (74g1)	2	Denmark	pTa	HIGH	papillary	no cis	Male	62
+1282-1 (26g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	77
+1282-1 (27g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	77
+129_UK (38g2)	1	England	pTa	HIGH	papillary	not determined	Male	66
+129_UK (39g2)	2	England	pTa	HIGH	papillary	not determined	Male	66
+1290-1 (34g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	67
+1290-1 (35g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	67
+1293-1 (18g2)	1	Denmark	pT1	HIGH	papillary	no cis	Male	64
+1293-1 (19g2)	2	Denmark	pT1	HIGH	papillary	no cis	Male	64
+12944_S (18g1)	1	Sweden	pTa	HIGH	papillary	not determined	Female	84
+12944_S (19g1)	2	Sweden	pTa	HIGH	papillary	not determined	Female	84
+1303-1 (45G1)	1	Denmark	pTa	PUNLMP	papillary	no cis	Female	66
+1303-1 (46G1)	2	Denmark	pTa	PUNLMP	papillary	no cis	Female	66
+13076_S (24g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	72
+13076_S (25g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	72
+132_UK (40g1)	1	England	pT1	HIGH	papillary + solid	CIS	Male	75
+132_UK (41g1)	2	England	pT1	HIGH	papillary + solid	CIS	Male	75
+13207_S (16g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	85
+13207_S (17g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	85
+13240_S (6g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	88
+13240_S (7g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	88
+1325_S (18g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	57
+1325_S (19g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	57
+1327-1 (41g2)	1	Denmark	pTa	HIGH	papillary	no cis	Female	67
+1327-1 (42g2)	2	Denmark	pTa	HIGH	papillary	no cis	Female	67
+1330-1 (20g1)	1	Denmark	pTa	HIGH	papillary	CIS	Male	64
+1330-1 (21g1)	2	Denmark	pTa	HIGH	papillary	CIS	Male	64
+1334-4 (72g1) F	1	France	pTa	LOW	papillary	not determined	 Male 	 60 
+1334-4 (73g1) F	2	France	pTa	LOW	papillary	not determined	 Male 	 60 
+1335-1 (20g2)	1	Denmark	pTa	HIGH	papillary	CIS	Male	48
+1335-1 (21g2)	2	Denmark	pTa	HIGH	papillary	CIS	Male	48
+1336-1 (55g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	77
+1336-1 (56g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	77
+1337-1 (55g2 vask2)	1	Denmark	pT1b	HIGH	papillary	CIS	Male	51
+1337-1 (56g2)	2	Denmark	pT1b	HIGH	papillary	CIS	Male	51
+13419_S (22g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Female	66
+13419_S (23g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Female	66
+1342-1 (45G2)	1	Denmark	pTa	LOW	papillary	no cis	Male	61
+1342-1 (46G2)	2	Denmark	pTa	LOW	papillary	no cis	Male	61
+1345-2 (27g1)	1	Denmark	pTa	HIGH	papillary	CIS	Male	74
+1345-2 (28g1)	2	Denmark	pTa	HIGH	papillary	CIS	Male	74
+1346-1 (6g1)	1	Denmark	pT1b	HIGH	papillary	no cis	Male	61
+1346-1 (75g1)	2	Denmark	pT1b	HIGH	papillary	no cis	Male	61
+13467_S (21g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	-
+13467_S (22g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	-
+1349-1 (6g2)	1	Denmark	pTa	HIGH	papillary	no cis	Male	54
+1349-1 (75g2)	2	Denmark	pTa	HIGH	papillary	no cis	Male	54
+1352-1 (7g1)	1	Denmark	pTa	HIGH	papillary	no cis	Female	43
+1352-1 (8g1)	2	Denmark	pTa	HIGH	papillary	no cis	Female	43
+1354-1 (7g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	80
+1354-1 (8g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	80
+1366-1 (43g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	68
+1366-1 (44g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	68
+1367-1 (36g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	70
+1367-1 (37g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	70
+1375-1 (10g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	53
+1375-1 (9g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	53
+13781_S (4g2)	1	Sweden	pT2	HIGH	papillary	not determined	Female	80
+13781_S (5g2)	2	Sweden	pT2	HIGH	papillary	not determined	Female	80
+1379 (23g1) F	1	France	pTa	LOW	papillary	not determined	 Male 	 56 
+1379 (24g1) F	2	France	pTa	LOW	papillary	not determined	 Male 	 56 
+1379-1 (22g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Female	67
+1379-1 (23g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Female	67
+13853_S (36g2)	1	Sweden	pT1b	HIGH	papillary	CIS	Male	59
+13853_S (37g2)	2	Sweden	pT1b	HIGH	papillary	CIS	Male	59
+1390-1 (43g2)	1	Denmark	pT1a	HIGH	papillary	no cis	Female	68
+1390-1 (44g2)	2	Denmark	pT1a	HIGH	papillary	no cis	Female	68
+13964_S (21g2)	1	Sweden	pTa	LOW	papillary	not determined	Male	49
+13964_S (22g2)	2	Sweden	pTa	LOW	papillary	not determined	Male	49
+140-16 (16g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Female	75
+140-16 (17g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Female	75
+1408-1 (57g1)	1	Denmark	pTa	HIGH	papillary	no cis	Male	33
+1408-1 (58g1)	2	Denmark	pTa	HIGH	papillary	no cis	Male	33
+1412 (69g2) F	1	France	pTa	HIGH	papillary	not determined	 Male 	 57 
+1412 (70g2) F	2	France	pTa	HIGH	papillary	not determined	 Male 	 57 
+1413 (71g1) F	1	France	pTa	LOW	papillary	not determined	 Male 	 34 
+1413 (72g1) F	2	France	pTa	LOW	papillary	not determined	 Male 	 34 
+1415-1 (33g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	65
+1415-1 (4g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	65
+14226_S (22g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	53
+14226_S (23g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	53
+1425-1_DK (18g2)	1	Denmark	pT1b	HIGH	papillary	not determined	Male	70
+1425-1_DK (19g2)	2	Denmark	pT1b	HIGH	papillary	not determined	Male	70
+1430-1 (45g1)	1	Denmark	pT1b	HIGH	papillary	no cis	Female	80
+1430-1 (46g1)	2	Denmark	pT1b	HIGH	papillary	no cis	Female	80
+1434-1 (45g2)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	70
+1434-1 (46g2)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	70
+14406_S (20g1)	1	Sweden	pT1	HIGH	papillary	not determined	Male	-
+14406_S (21g1)	2	Sweden	pT1	HIGH	papillary	not determined	Male	-
+1442 (11g1) F	1	France	pTa	LOW	papillary	not determined	 Male 	 75 
+1442 (12g1) F	2	France	pTa	LOW	papillary	not determined	 Male 	 75 
+1443-1_DK (20g1)	1	Denmark	pT1b	HIGH	papillary	not determined	Male	69
+1443-1_DK (21g1)	2	Denmark	pT1b	HIGH	papillary	not determined	Male	69
+1448-2 (11g2) F	1	France	pT1b	HIGH	solid	not determined	 Male 	 71 
+1448-2 (12g2) F	2	France	pT1b	HIGH	solid	not determined	 Male 	 71 
+1456-1 (57g2)	1	Denmark	pT1b	HIGH	solid	no cis	Female	72
+1456-1 (58g2)	2	Denmark	pT1b	HIGH	solid	no cis	Female	72
+1473-1 (47g1)	1	Denmark	pT1b	HIGH	papillary	no cis	Male	78
+1473-1 (48g1)	2	Denmark	pT1b	HIGH	papillary	no cis	Male	78
+1478-1 (59g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	74
+1478-1 (60g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	74
+1482-1 (47g2)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	67
+1482-1 (48g2)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	67
+1484 (74g1) F	1	France	pT2	HIGH	solid	not determined	 Female 	 83 
+1484 (75g1) F	2	France	pT2	HIGH	solid	not determined	 Female 	 83 
+1498 (41g2) F	1	France	pTa	HIGH	papillary	not determined	 Male 	 56 
+1498 (42g2) F	2	France	pTa	HIGH	papillary	not determined	 Male 	 56 
+1507-1 (49g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	65
+1507-1 (50g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	65
+1512-6 (74g2) F	1	France	pT2	HIGH	solid	not determined	 Female 	 49 
+1512-6 (75g2) F	2	France	pT2	HIGH	solid	not determined	 Female 	 49 
+15152_S (11g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	73
+15152_S (15g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	73
+1533-10 (23g2) F	1	France	pT1b	HIGH	papillary	not determined	 Male 	 34 
+1533-10 (24g2) F	2	France	pT1b	HIGH	papillary	not determined	 Male 	 34 
+154-5 (16g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	76
+154-5 (17g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	76
+1571-1 (34g1)	1	Denmark	pT1b	HIGH	papillary+cis	CIS	Male	68
+1571-1 (35g1)	2	Denmark	pT1b	HIGH	papillary+cis	CIS	Male	68
+1574-1 (36g2)	1	Denmark	pT1b	HIGH	papillary	not determined	Female	72
+1574-1 (37g2)	2	Denmark	pT1b	HIGH	papillary	not determined	Female	72
+15901_S (33g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	71
+15901_S (34g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	71
+16162_S (4g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	75
+16162_S (5g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	75
+16429_S (28g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	85
+16429_S (29g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	85
+16458_S (12g1)	1	Sweden	"pTa, pTIS"	HIGH	papillary+flat	CIS	Male	80
+16458_S (13g1)	2	Sweden	"pTa, pTIS"	HIGH	papillary+flat	CIS	Male	80
+16520_S (23g1)	1	Sweden	pT1	HIGH	papillary	not determined	Female	71
+16520_S (24g1)	2	Sweden	pT1	HIGH	papillary	not determined	Female	71
+1656-1 (27g2)	1	Denmark	pTa	HIGH	papillary	no cis	Female	80
+1656-1 (28g2)	2	Denmark	pTa	HIGH	papillary	no cis	Female	80
+1660-1 (34g1)	1	Denmark	pT1b	HIGH	papillary+solid	not determined	Male	80
+1660-1 (35g1)	2	Denmark	pT1b	HIGH	papillary+solid	not determined	Male	80
+16667_S (36g1)	1	Sweden	pTa	HIGH	papillary	not determined	Male	84
+16667_S (37g1)	2	Sweden	pTa	HIGH	papillary	not determined	Male	84
+167_UK (42g1)	1	England	pT1a	HIGH	papillary	CIS	Female	88
+167_UK (43g1)	2	England	pT1a	HIGH	papillary	CIS	Female	88
+16766_S (11g1)	1	Sweden	pT1b	HIGH	papillary + solid	not determined	Male	70
+16766_S (15g1)	2	Sweden	pT1b	HIGH	papillary + solid	not determined	Male	70
+168_UK (42g2)	1	England	pTa	HIGH	papillary	not determined	Male	73
+168_UK (43g2)	2	England	pTa	HIGH	papillary	not determined	Male	73
+16805_S (16g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	82
+16805_S (17g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	82
+169_F (26g2)	1	France	pT1a	HIGH	papillary	not determined	Male	 60 
+169_F (27g2)	2	France	pT1a	HIGH	papillary	not determined	Male	 60 
+17089_S (28g1)	1	Sweden	pTa	HIGH	papillary	not determined	Male	-
+17089_S (29g1)	2	Sweden	pTa	HIGH	papillary	not determined	Male	-
+171_F (30g2)	1	France	pT1b	HIGH	papillary	not determined	Male	 77 
+171_F (31g2)	2	France	pT1b	HIGH	papillary	not determined	Male	 77 
+17266_S (49g2)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	46
+17266_S (50g2)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	46
+17601_S (14g2)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	70
+17601_S (15g2)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	70
+17640_S (34g2)	1	Sweden	pT2	HIGH	papillary + solid	not determined	Male	-
+17640_S (35g2)	2	Sweden	pT2	HIGH	papillary + solid	not determined	Male	-
+177-1 (18g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	66
+177-1 (19g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	66
+17753_S (34g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	-
+17753_S (35g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	-
+17754_S (53g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	43
+17754_S (54g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	43
+17798_S (60g2)	1	Sweden	pT1b	HIGH	solid	no cis	Male	74
+17798_S (61g2)	2	Sweden	pT1b	HIGH	solid	no cis	Male	74
+17932_S (10g2)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	75
+17932_S (11g2)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	75
+18318_S (60g1)	1	Sweden	pT2	HIGH	solid	not determined	Male	80
+18318_S (61g1)	2	Sweden	pT2	HIGH	solid	not determined	Male	80
+18404_S (47g2)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	78
+18404_S (48g2)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	78
+18410_S (14g1)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	70
+18410_S (15g1)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	70
+18600_S (50g1)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	81
+18600_S (72g1)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	81
+187_UK (44g1)	1	England	pT1b	LOW	papillary	not determined	Female	59
+187_UK (45g1)	2	England	pT1b	LOW	papillary	not determined	Female	59
+18757_S (47g1)	1	Sweden	pT1a	HIGH	papillary	CIS	Male	61
+18757_S (48g1)	2	Sweden	pT1a	HIGH	papillary	CIS	Male	61
+18775_S (23g2)	1	Sweden	pT1	HIGH	papillary	not determined	Female	85
+18775_S (24g2)	2	Sweden	pT1	HIGH	papillary	not determined	Female	85
+1887-1 (34g2)	1	Denmark	pT1	HIGH	solid	no cis	Female	67
+1887-1 (35g2)	2	Denmark	pT1	HIGH	solid	no cis	Female	67
+18877_S (46g2)	1	Sweden	pTa	HIGH	papillary	not determined	Male	77
+18877_S (72g2)	2	Sweden	pTa	HIGH	papillary	not determined	Male	77
+18970_S (59g2)	1	Sweden	pTa	HIGH	papillary	not determined	Male	53
+18970_S (60g2)	2	Sweden	pTa	HIGH	papillary	not determined	Male	53
+19134_S (59g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	63
+19134_S (60g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	63
+19292_S (45g1)	1	Sweden	pTa	LOW	papillary	not determined	Male	59
+19292_S (46g1)	2	Sweden	pTa	LOW	papillary	not determined	Male	59
+193_F (32g1)	1	France	pT2	HIGH	solid	not determined	Male	 65 
+193_F (33g1)	2	France	pT2	HIGH	solid	not determined	Male	 65 
+194_F (32g2)	1	France	pT1a	HIGH	papillary	not determined	Male	 73 
+194_F (33g2)	2	France	pT1a	HIGH	papillary	not determined	Male	 73 
+195 (51g1) F	1	France	pTa	HIGH	solid	not determined	 Female 	 59 
+195 (52g1) F	2	France	pTa	HIGH	solid	not determined	 Female 	 59 
+1950_S (8g2)	1	Sweden	pT2	HIGH	papillary + solid	not determined	Male	54
+1950_S (9g2)	2	Sweden	pT2	HIGH	papillary + solid	not determined	Male	54
+19700_S (10g1)	1	Sweden	pT1a	HIGH	papillary	no cis	Male	68
+19700_S (11g1)	2	Sweden	pT1a	HIGH	papillary	no cis	Male	68
+19783_S (2g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	50
+19783_S (3g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	50
+1983_S (38g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	53
+1983_S (52g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	53
+19992_S (57g2)	1	Sweden	pT1	HIGH	papillary	not determined	Male	76
+19992_S (58g2)	2	Sweden	pT1	HIGH	papillary	not determined	Male	76
+20421_S (25g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	76
+20421_S (26g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	76
+20577_S (20g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	-
+20577_S (21g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	-
+20724_S (57g1)	1	Sweden	pTa	HIGH	papillary	not determined	Female	73
+20724_S (58g1)	2	Sweden	pTa	HIGH	papillary	not determined	Female	73
+20750_S (55g1)	1	Sweden	pT1	HIGH	papillary	not determined	Female	72
+20750_S (56g1)	2	Sweden	pT1	HIGH	papillary	not determined	Female	72
+20803_S (2g1)	1	Sweden	pT1a	HIGH	papillary	not determined	Female	78
+20803_S (3g1)	2	Sweden	pT1a	HIGH	papillary	not determined	Female	78
+20975_S (10g2)	1	Sweden	pT1	HIGH	papillary	not determined	Female	71
+20975_S (9g2)	2	Sweden	pT1	HIGH	papillary	not determined	Female	71
+21040_S (20g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	82
+21040_S (21g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	82
+21077_S (55g2)	1	Sweden	pT1	HIGH	papillary	not determined	Male	63
+21077_S (56g2)	2	Sweden	pT1	HIGH	papillary	not determined	Male	63
+21512_S (10g1)	1	Sweden	pT1a	HIGH	papillary	no cis	Male	83
+21512_S (9g1)	2	Sweden	pT1a	HIGH	papillary	no cis	Male	83
+2160_S (12g2)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	66
+2160_S (13g2)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	66
+217-11 (18g2)	1	Denmark	pTa	HIGH	papillary	no cis	Male	51
+217-11 (19g2)	2	Denmark	pTa	HIGH	papillary	no cis	Male	51
+225_UK (14g1)	1	England	pT1a	HIGH	papillary	CIS	Male	65
+225_UK (15g1)	2	England	pT1a	HIGH	papillary	CIS	Male	65
+22562_S (7g1)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	65
+22562_S (8g1)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	65
+240-12 (20g1)	1	Denmark	pTa	HIGH	papillary	CIS	Male	72
+240-12 (21g1)	2	Denmark	pTa	HIGH	papillary	CIS	Male	72
+242-3 (20g2)	1	Denmark	pT1	HIGH	papillary	CIS	Male	74
+242-3 (21g2)	2	Denmark	pT1	HIGH	papillary	CIS	Male	74
+24745_S (12g2)	1	Sweden	pT2	HIGH	papillary	not determined	Male	88
+24745_S (13g2)	2	Sweden	pT2	HIGH	papillary	not determined	Male	88
+2477_S (10g2)	1	Sweden	pTa	LOW	papillary	not determined	Male	77
+2477_S (11g2)	2	Sweden	pTa	LOW	papillary	not determined	Male	77
+247-9 (22g1)	1	Denmark	pTa	HIGH	papillary	CIS	Male	81
+247-9 (23g1)	2	Denmark	pTa	HIGH	papillary	CIS	Male	81
+248_UK (44g2)	1	England	pTa	HIGH	papillary	not determined	Female	68
+248_UK (45g2)	2	England	pTa	HIGH	papillary	not determined	Female	68
+259 (26g1) F	1	France	pT2	HIGH	papillary	not determined	 Male 	 59 
+259 (27g1) F	2	France	pT2	HIGH	papillary	not determined	 Male 	 59 
+263-1 (13g1) F	1	France	pT1a	HIGH	papillary	not determined	 Male 	 58 
+263-1 (14g1) F	2	France	pT1a	HIGH	papillary	not determined	 Male 	 58 
+266_UK (14g2)	1	England	pTa	HIGH	papillary	CIS	Male	67
+266_UK (15g2)	2	England	pTa	HIGH	papillary	CIS	Male	67
+27386_S (22g1)	1	Sweden	pTa	HIGH	papillary	not determined	Female	-
+27386_S (23g1)	2	Sweden	pTa	HIGH	papillary	not determined	Female	-
+276_UK (2g1)	1	England	pTa	PUNLMP	papillary	no cis	Male	55
+276_UK (3g1)	2	England	pTa	PUNLMP	papillary	no cis	Male	55
+277_UK (2g2)	1	England	pTa	LOW	papillary	not determined	Male	73
+277_UK (3g2)	2	England	pTa	LOW	papillary	not determined	Male	73
+281 (33g1) F	1	France	pT2	HIGH	solid	not determined	 Male 	 58 
+281 (34g1) F	2	France	pT2	HIGH	solid	not determined	 Male 	 58 
+2814_S (5g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	-
+2814_S (6g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	-
+288-2 (33g2) F	1	France	pT2	HIGH	-	not determined	 Male 	 59 
+288-2 (34g2) F	2	France	pT2	HIGH	-	not determined	 Male 	 59 
+289-3 (35g1) F	1	France	pT2	HIGH	-	not determined	 Male 	 71 
+289-3 (36g1) F	2	France	pT2	HIGH	-	not determined	 Male 	 71 
+290_UK (4g1)	1	England	pT1a	LOW	papillary	not determined	Female	63
+290_UK (5g1)	2	England	pT1a	LOW	papillary	not determined	Female	63
+2926_S (8g1)	1	Sweden	pT1a	HIGH	papillary	not determined	Female	91
+2926_S (9g1)	2	Sweden	pT1a	HIGH	papillary	not determined	Female	91
+295_UK (4g2)	1	England	pTa	PUNLMP	papillary	not determined	Male	87
+295_UK (5g2)	2	England	pTa	PUNLMP	papillary	not determined	Male	87
+29600_S (43g2)	1	Sweden	pTa	LOW	papillary	not determined	Male	61
+29600_S (44g2)	2	Sweden	pTa	LOW	papillary	not determined	Male	61
+304_UK (6g1)	1	England	pTa	PUNLMP	papillary	no cis	Male	85
+304_UK (7g1)	2	England	pTa	PUNLMP	papillary	no cis	Male	85
+311_UK (6g2)	1	England	pTa	PUNLMP	papillary	not determined	Male	73
+311_UK (7g2)	2	England	pTa	PUNLMP	papillary	not determined	Male	73
+31373_S (45g1)	1	Sweden	pTa	LOW	papillary	not determined	Female	70
+31373_S (5g1)	2	Sweden	pTa	LOW	papillary	not determined	Female	70
+319 (61g1) F	1	France	pTa	PUNLMP	papillary	not determined	 Male 	 42 
+319 (62g1) F	2	France	pTa	PUNLMP	papillary	not determined	 Male 	 42 
+31999_S (45g2)	1	Sweden	pTa	HIGH	papillary	no cis	Male	78
+31999_S (5g2)	2	Sweden	pTa	HIGH	papillary	no cis	Male	78
+320-7 (24g1)	1	Denmark	pTa	HIGH	papillary	CIS	Male	69
+320-7 (25g1)	2	Denmark	pTa	HIGH	papillary	CIS	Male	69
+324 (61g2) F	1	France	pT1a	HIGH	papillary	not determined	 Male 	 57 
+324 (62g2) F	2	France	pT1a	HIGH	papillary	not determined	 Male 	 57 
+332-1 (29g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	69
+332-1 (30g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	69
+334_UK (8g1)	1	England	pT1b	HIGH	papillary	not determined	Female	93
+334_UK (9g1)	2	England	pT1b	HIGH	papillary	not determined	Female	93
+335-6 (37g2)	1	Denmark	pTa	LOW	papillary	no cis	Female	77
+335-6 (38g2)	2	Denmark	pTa	LOW	papillary	no cis	Female	77
+338 (73g1) F	1	France	pTa	PUNLMP	papillary	not determined	 Female 	 38 
+338 (74g1)	2	France	pTa	PUNLMP	papillary	not determined	 Female 	 38 
+341_UK (8g2)	1	England	pTa	LOW	papillary	not determined	Female	80
+341_UK (9g2)	2	England	pTa	LOW	papillary	not determined	Female	80
+342 (73g2) F	1	France	pTa	HIGH	papillary	not determined	 Male 	 54 
+342 (74g2) F	2	France	pTa	HIGH	papillary	not determined	 Male 	 54 
+347-5 (24g2)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	75
+347-5 (25g2)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	75
+3595_S (30g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Female	77
+3595_S (31g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Female	77
+361_UK (10g1)	1	England	pTa	PUNLMP	papillary	not determined	Female	89
+361_UK (11g1)	2	England	pTa	PUNLMP	papillary	not determined	Female	89
+368-4 (39g1)	1	Denmark	pTis	LOW	flat	no cis	Male	76
+368-4 (40g1)	2	Denmark	pTis	LOW	flat	no cis	Male	76
+37_UK (36g1)	1	England	pT1a	HIGH	papillary	not determined	Female	76
+37_UK (37g1)	2	England	pT1a	HIGH	papillary	not determined	Female	76
+391 (13g2) F	1	France	pT1	HIGH	"inverted + solid, focal squamous"	not determined	 Female 	 72 
+391 (14g2) F	2	France	pT1	HIGH	"inverted + solid, focal squamous"	not determined	 Female 	 72 
+402 (15g1) F	1	France	pTa	LOW	papillary	not determined	 Male 	 72 
+402 (16g1) F	2	France	pTa	LOW	papillary	not determined	 Male 	 72 
+407 (15g2) F	1	France	pT1a	HIGH	papillary	not determined	 Female 	 78 
+407 (16g2) F	2	France	pT1a	HIGH	papillary	not determined	 Female 	 78 
+407-1 (29g2)	1	Denmark	pTa	LOW	papillary	no cis	Female	62
+407-1 (30g2)	2	Denmark	pTa	LOW	papillary	no cis	Female	62
+413 (35g2) F	1	France	pT1b	HIGH	solid	not determined	 Male 	 50 
+413 (36g2) F	2	France	pT1b	HIGH	solid	not determined	 Male 	 50 
+4134_S (70g2)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	67
+4134_S (71g2)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	67
+431 (63g1) F	1	France	pT2	HIGH	solid	not determined	 Male 	 68 
+431 (64g1) F	2	France	pT2	HIGH	solid	not determined	 Male 	 68 
+4405_S (5g1)	1	Sweden	pTa	HIGH	papillary	not determined	Male	73
+4405_S (6g1)	2	Sweden	pTa	HIGH	papillary	not determined	Male	73
+441-1 (31g1)	1	Denmark	pTIS	LOW	flat	CIS	Male	69
+441-1 (32g1)	2	Denmark	pTIS	LOW	flat	CIS	Male	69
+448 (6g1) F	1	France	pT1a	HIGH	papillary	not determined	 Male 	 79 
+448 (75g1) F	2	France	pT1a	HIGH	papillary	not determined	 Male 	 79 
+4482_S (26g2)	1	Sweden	pT1	HIGH	papillary	not determined	Male	83
+4482_S (27g2)	2	Sweden	pT1	HIGH	papillary	not determined	Male	83
+4489_S (70g1)	1	Sweden	pTa	LOW	papillary	not determined	Female	79
+4489_S (71g1)	2	Sweden	pTa	LOW	papillary	not determined	Female	79
+4753_S (61g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	72
+4753_S (62g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	72
+4763_S (27g2)	1	Sweden	pT2	HIGH	solid	not determined	Male	77
+4763_S (28g2)	2	Sweden	pT2	HIGH	solid	not determined	Male	77
+4776_S (12g1)	1	Sweden	pTa	HIGH	papillary	not determined	Male	78
+4776_S (13g1)	2	Sweden	pTa	HIGH	papillary	not determined	Male	78
+478-2 (6g2) F	1	France	pTa	LOW	papillary	not determined	 Male 	 64 
+478-2 (75g2) F	2	France	pTa	LOW	papillary	not determined	 Male 	 64 
+4838_S (68g2)	1	Sweden	pT2	-	Squamous cell carcinoma	not determined	Male	61
+4838_S (69g2)	2	Sweden	pT2	-	Squamous cell carcinoma	not determined	Male	61
+490_UK (10g2)	1	England	pTa	HIGH	papillary	CIS	Male	71
+490_UK (11g2)	2	England	pTa	HIGH	papillary	CIS	Male	71
+4935_S (68g1)	1	Sweden	pTa	LOW	papillary	not determined	Male	78
+4935_S (69g1)	2	Sweden	pTa	LOW	papillary	not determined	Male	78
+505 (26g2) F	1	France	pT1b	HIGH	papillary + solid	not determined	 Male 	 66 
+505 (27g2) F	2	France	pT1b	HIGH	papillary + solid	not determined	 Male 	 66 
+506 (17g1) F	1	France	pTa	LOW	papillary	not determined	 Male 	 63 
+506 (32g1) F	2	France	pTa	LOW	papillary	not determined	 Male 	 63 
+508 (17g2) F	1	France	pTa	PUNLMP	papillary	not determined	 Male 	 58 
+508 (32g2) F	2	France	pTa	PUNLMP	papillary	not determined	 Male 	 58 
+5099_S (33g1)	1	Sweden	pT2	HIGH	papillary + solid	not determined	Male	86
+5099_S (34g1)	2	Sweden	pT2	HIGH	papillary + solid	not determined	Male	86
+518 (37g1) F	1	France	pT1b	HIGH	papillary	not determined	 Male 	 58 
+518 (38g1) F	2	France	pT1b	HIGH	papillary	not determined	 Male 	 58 
+519_UK (12g1)	1	England	pT1b	HIGH	papillary	CIS	Male	-
+519_UK (13g1)	2	England	pT1b	HIGH	papillary	CIS	Male	-
+521-1 (31g2)	1	Denmark	pTa	HIGH	papillary	no cis	Male	27
+521-1 (32g2)	2	Denmark	pTa	HIGH	papillary	no cis	Male	27
+525_UK (12g2)	1	England	pTa	LOW	papillary	not determined	Male	84
+525_UK (13g2)	2	England	pTa	LOW	papillary	not determined	Male	84
+532-8 (51g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	44
+532-8 (52g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	44
+539-1 (30g1)	1	Denmark	pTa	LOW	papillary	no cis	Female	44
+539-1 (31g1)	2	Denmark	pTa	LOW	papillary	no cis	Female	44
+546 (37g2) F	1	France	pT1a	HIGH	papillary	not determined	 Male 	 66 
+546 (38g2) F	2	France	pT1a	HIGH	papillary	not determined	 Male 	 66 
+5731_S (41g1)	1	Sweden	pT1	HIGH	papillary	not determined	Male	71
+5731_S (42g1)	2	Sweden	pT1	HIGH	papillary	not determined	Male	71
+576-6 (39g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	77
+576-6 (40g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	77
+58-11 (14g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	76
+58-11 (15g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	76
+5880_S (30g1)	1	Sweden	pTa	HIGH	papillary	not determined	Male	86
+5880_S (31g1)	2	Sweden	pTa	HIGH	papillary	not determined	Male	86
+5911_S (26g1)	1	Sweden	pTa	HIGH	papillary	not determined	Male	70
+5911_S (27g1)	2	Sweden	pTa	HIGH	papillary	not determined	Male	70
+6150_S (17g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Female	50
+6150_S (18g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Female	50
+62-9 (37g1)	1	Denmark	pTa	HIGH	papillary	CIS	Male	70
+62-9 (38g1)	2	Denmark	pTa	HIGH	papillary	CIS	Male	70
+635_S (27g1)	1	Sweden	pT2	HIGH	solid	no cis	Male	85
+635_S (28g1)	2	Sweden	pT2	HIGH	solid	no cis	Male	85
+637 (63g2) F	1	France	pTa	HIGH	papillary	not determined	 Male 	 29 
+637 (64g2) F	2	France	pTa	HIGH	papillary	not determined	 Male 	 29 
+647-1 (39g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	60
+647-1 (40g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	60
+6679_S (58g2)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	94
+6679_S (59g2)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	94
+677-1 (65g1) F	1	France	pTa	HIGH	papillary	not determined	 Male 	 58 
+677-1 (66g1) F	2	France	pTa	HIGH	papillary	not determined	 Male 	 58 
+679-2 (41g1)	1	Denmark	pTa	LOW	papillary	CIS	Male	76
+679-2 (42g1)	2	Denmark	pTa	LOW	papillary	CIS	Male	76
+682-2 (33g1)	1	Denmark	pTa	PUNLMP	papillary	not determined	Male	77
+682-2 (34g1)	2	Denmark	pTa	PUNLMP	papillary	not determined	Male	77
+684-4 (33g2)	1	Denmark	pT1a	HIGH	papillary	CIS	Male	77
+684-4 (34g2)	2	Denmark	pT1a	HIGH	papillary	CIS	Male	77
+6876_S (18g2)	1	Sweden	pT1	HIGH	papillary	not determined	Male	72
+6876_S (31g2)	2	Sweden	pT1	HIGH	papillary	not determined	Male	72
+692-1 (39G1)	1	France	pT2	HIGH	-	not determined	 Male 	 70 
+692-1 (40G1)	2	Denmark	pTa	LOW	papillary	no cis	Male	84
+692-1 (7g1) F	1	France	pT2	HIGH	-	not determined	 Male 	 70 
+692-1 (8g1) F	2	Denmark	pTa	LOW	papillary	no cis	Male	84
+6971_S (18g2)	1	Sweden	pT1b	HIGH	papillary	CIS	Female	81
+6971_S (19g2)	2	Sweden	pT1b	HIGH	papillary	CIS	Female	81
+698_S (38g1)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	72
+698_S (52g1)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	72
+698-2 (37g1)	1	Denmark	pT1	HIGH	papillary	CIS	Male	77
+698-2 (38g1)	2	Denmark	pT1	HIGH	papillary	CIS	Male	77
+703-1 (35g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	79
+703-1 (36g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	79
+708 (7g2) F	1	France	pTa	LOW	papillary	not determined	 Male 	 85 
+708 (8g2) F	2	France	pTa	LOW	papillary	not determined	 Male 	 85 
+712 (28g1) F	1	France	pT2	HIGH	papillary	not determined	 Male 	 81 
+712 (29g1) F	2	France	pT2	HIGH	papillary	not determined	 Male 	 81 
+7184_S (58g1)	1	Sweden	pTa	LOW	papillary	not determined	Male	42
+7184_S (59g1)	2	Sweden	pTa	LOW	papillary	not determined	Male	42
+7188_S (66g2)	1	Sweden	pTa	HIGH	papillary	not determined	Female	81
+7188_S (67g2)	2	Sweden	pTa	HIGH	papillary	not determined	Female	81
+735_UK (16g1)	1	England	pTa	LOW	papillary	not determined	Female	77
+735_UK (17g1)	2	England	pTa	LOW	papillary	not determined	Female	77
+735-1_DK (28g2)	1	Denmark	pT1b	HIGH	papillary	no cis	Male	69
+735-1_DK (29g2)	2	Denmark	pT1b	HIGH	papillary	no cis	Male	69
+74_UK (36g2)	1	England	pTa	PUNLMP	papillary	no cis	Male	52
+74_UK (37g2)	2	England	pTa	PUNLMP	papillary	no cis	Male	52
+745-1 (19g1) F	1	France	pTa	HIGH	papillary	not determined	 Male 	 65 
+745-1 (20g1) F	2	France	pTa	HIGH	papillary	not determined	 Male 	 65 
+746-1 (35g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	76
+746-1 (36g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	76
+747-7 (47g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	49
+747-7 (48g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	49
+7546_S (66g1)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	70
+7546_S (67g1)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	70
+760-1 (30g2)	1	Denmark	pT1	HIGH	papillary	CIS	Male	72
+760-1 (31g2)	2	Denmark	pT1	HIGH	papillary	CIS	Male	72
+763-1 (31g2)	1	Denmark	pTa	LOW	papillary	CIS	Male	59
+763-1 (32g2)	2	Denmark	pTa	LOW	papillary	CIS	Male	59
+7739_S (64g2)	1	Sweden	pT1a	HIGH	papillary+flat	CIS	Male	88
+7739_S (65g2)	2	Sweden	pT1a	HIGH	papillary+flat	CIS	Male	88
+775-1 (33g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	70
+775-1 (34g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	70
+793-1 (12g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	67
+793-1 (13g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	67
+794-3 (26g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	70
+794-3 (27g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	70
+795-13 (55g1)	1	Denmark	pTa	HIGH	papillary	no cis	Male	67
+795-13 (56g1)	2	Denmark	pTa	HIGH	papillary	no cis	Male	67
+797-1 (33g2)	1	Denmark	pTa	HIGH	papillary	CIS	Male	79
+797-1 (34g2)	2	Denmark	pTa	HIGH	papillary	CIS	Male	79
+7988_S (20g2)	1	Sweden	pTa	LOW	papillary	not determined	Female	58
+7988_S (21g2)	2	Sweden	pTa	LOW	papillary	not determined	Female	58
+8054_S (41g2)	1	Sweden	pTa	HIGH	papillary	not determined	Male	64
+8054_S (42g2)	2	Sweden	pTa	HIGH	papillary	not determined	Male	64
+812-1 (49g1)	1	Denmark	pTa	HIGH	papillary	no cis	Male	48
+812-1 (50g1)	2	Denmark	pTa	HIGH	papillary	no cis	Male	48
+813 (51g2) F	1	France	pTa	LOW	papillary	not determined	 Male 	 67 
+813 (52g2) F	2	France	pTa	LOW	papillary	not determined	 Male 	 67 
+815 (19g2) F	1	France	pT2	HIGH	solid	not determined	 Male 	 75 
+815 (20g2) F	2	France	pT2	HIGH	solid	not determined	 Male 	 75 
+815-1 (41g2)	1	Denmark	pTa	HIGH	papillary	no cis	Male	73
+815-1 (42g2)	2	Denmark	pTa	HIGH	papillary	no cis	Male	73
+822 (53g1) F	1	France	pT3a	-	solid	not determined	 Male 	 70 
+822 (54g1) F	2	France	pT3a	-	solid	not determined	 Male 	 70 
+823-2 (35g1)	1	Denmark	pTa	PUNLMP	papillary	no cis	Male	56
+823-2 (36G1)	2	Denmark	pTa	PUNLMP	papillary	no cis	Male	56
+824-1 (53g2) F	1	France	pTa	HIGH	papillary	not determined	 Male 	 58 
+824-1 (54g2) F	2	France	pTa	HIGH	papillary	not determined	 Male 	 58 
+825-3 (70g1)	1	Denmark	pTa	HIGH	papillary	CIS	Male	73
+825-3 (71g1)	2	Denmark	pTa	HIGH	papillary	CIS	Male	73
+829-1 (12g2)	1	Denmark	pTa	LOW	papillary	no cis	Female	63
+829-1 (13g2)	2	Denmark	pTa	LOW	papillary	no cis	Female	63
+837-1 (30g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	68
+837-1 (31g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	68
+839 (39g1) F	1	France	pT1b	HIGH	papillary	not determined	 Male 	 74 
+839 (40g1) F	2	France	pT1b	HIGH	papillary	not determined	 Male 	 74 
+839-1 (43g1)	1	Denmark	pT1b	HIGH	papillary + flat	CIS	Male	84
+839-1 (44g1)	2	Denmark	pT1b	HIGH	papillary + flat	CIS	Male	84
+840-1 (39g2) F	1	France	pTa	LOW	papillary	not determined	 Male 	 70 
+840-1 (40g2) F	2	France	pTa	LOW	papillary	not determined	 Male 	 70 
+841-1 (37g1)	1	Denmark	pTa	LOW	papillary	not determined	Male	31
+841-1 (38g1)	2	Denmark	pTa	LOW	papillary	not determined	Male	31
+842 (65g2) F	1	France	pTa	LOW	papillary	not determined	 Female 	 89 
+842 (66g2) F	2	France	pTa	LOW	papillary	not determined	 Female 	 89 
+843-1 (14g1)	1	Denmark	pTa	LOW	papillary	CIS	Male	70
+843-1 (15g1)	2	Denmark	pTa	LOW	papillary	CIS	Male	70
+845-1 (37g2)	1	Denmark	pT1	HIGH	papillary	no cis	Female	78
+845-1 (38g2)	2	Denmark	pT1	HIGH	papillary	no cis	Female	78
+848 (67g1) F	1	France	pT2	HIGH	solid	not determined	 Male 	 65 
+848 (68g1) F	2	France	pT2	HIGH	solid	not determined	 Male 	 65 
+855-1 (39g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	64
+855-1 (40g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	64
+856-2 (14g1)	1	Denmark	pT1a	HIGH	papillary	CIS	Male	75
+856-2 (15g1)	2	Denmark	pT1a	HIGH	papillary	CIS	Male	75
+861-1 (47g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	73
+861-1 (48g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	73
+865-1 (63g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	70
+865-1 (64g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	70
+867 (10g1) F	1	France	pTa	LOW	papillary	not determined	 Female 	 54 
+867 (9g1) F	2	France	pTa	LOW	papillary	not determined	 Female 	 54 
+867_UK (16g2)	1	England	pTa	LOW	papillary	no cis	Male	79
+867_UK (17g2)	2	England	pTa	LOW	papillary	no cis	Male	79
+876-1 (35g2)	1	Denmark	pTa	HIGH	papillary	no cis	Male	57
+876-1 (36g1)	2	Denmark	pTa	HIGH	papillary	no cis	Male	57
+879 (28g2) F	1	France	pT1b	HIGH	papillary	not determined	 Male 	 60 
+879 (29g2) F	2	France	pT1b	HIGH	papillary	not determined	 Male 	 60 
+880-1 (49g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	58
+880-1 (50g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	58
+881-1 (39g2)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	70
+881-1 (40g2)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	70
+886-1 (14g2)	1	Denmark	pT1b	HIGH	papillary + solid	no cis	Male	76
+886-1 (15g2)	2	Denmark	pT1b	HIGH	papillary + solid	no cis	Male	76
+8908_S (56g2)	1	Sweden	pT1a	HIGH	papillary	not determined	Male	68
+8908_S (57g2)	2	Sweden	pT1a	HIGH	papillary	not determined	Male	68
+898-1 (45g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	78
+898-1 (46g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	78
+908 (21g1) F	1	France	pTa	LOW	papillary	not determined	 Male 	 57 
+908 (22g1) F	2	France	pTa	LOW	papillary	not determined	 Male 	 57 
+910 (21g2) F	1	France	pT2	HIGH	solid	not determined	 Male 	 63 
+910 (22g2) F	2	France	pT2	HIGH	solid	not determined	 Male 	 63 
+9148_S (7g2)	1	Sweden	pTa	HIGH	papillary	not determined	Male	64
+9148_S (8g2)	2	Sweden	pTa	HIGH	papillary	not determined	Male	64
+9155_S (53g1)	1	Sweden	pT1b	HIGH	papillary	not determined	Male	-
+9155_S (54g1)	2	Sweden	pT1b	HIGH	papillary	not determined	Male	-
+916-1 (41g2)	1	Denmark	pTa	PUNLMP	papillary	no cis	Female	51
+916-1 (42g2)	2	Denmark	pTa	PUNLMP	papillary	no cis	Female	51
+924-1 (41g1) F	1	France	pT3	HIGH	solid	not determined	 Male 	 63 
+924-1 (42g1) F	2	France	pT3	HIGH	solid	not determined	 Male 	 63 
+925-7 (61g1)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	65
+925-7 (62g1)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	65
+926-1 (39g1)	1	Denmark	pTa	LOW	papillary	no cis	Male	55
+926-1 (40g1)	2	Denmark	pTa	LOW	papillary	no cis	Male	55
+927-1 (55g2)	1	Denmark	pT1a	HIGH	papillary	no cis	Male	71
+927-1 (56g2)	2	Denmark	pT1a	HIGH	papillary	no cis	Male	71
+9286_S (64g1)	1	Sweden	pT1b	HIGH	papillary	CIS	Female	65
+9286_S (65g1)	2	Sweden	pT1b	HIGH	papillary	CIS	Female	65
+930-1 (49g2)	1	Denmark	pTa	LOW	papillary	no cis	Female	62
+930-1 (50g2)	2	Denmark	pTa	LOW	papillary	no cis	Female	62
+938-1 (16g1)	1	Denmark	pT1	HIGH	papillary	not determined	Male	83
+938-1 (17g1)	2	Denmark	pT1	HIGH	papillary	not determined	Male	83
+941-4 (63g2)	1	Denmark	pTa	HIGH	papillary	no cis	Female	68
+941-4 (64g2)	2	Denmark	pTa	HIGH	papillary	no cis	Female	68
+942-1 (14g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	58
+942-1 (15g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	58
+943 (30g1) F	1	France	pT2	HIGH	solid	not determined	 Female 	 57 
+943 (31g1) F	2	France	pT2	HIGH	solid	not determined	 Female 	 57 
+944-1 (39g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	71
+944-1 (40g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	71
+962-1 (61g2)	1	Denmark	pTa	PUNLMP	papillary	no cis	Male	65
+962-1 (62g2)	2	Denmark	pTa	PUNLMP	papillary	no cis	Male	65
+965 (67g2) F	1	France	pT1b	HIGH	papillary + solid	not determined	 Male 	 83 
+965 (68g2) F	2	France	pT1b	HIGH	papillary + solid	not determined	 Male 	 83 
+967-3 (6g1)	1	Denmark	pT1b	HIGH	papillary	CIS	Female	67
+967-3 (7g1)	2	Denmark	pT1b	HIGH	papillary	CIS	Female	67
+970-1 (41g1)	1	Denmark	pT2	HIGH	papillary	not determined	Female	76
+970-1 (42g1)	2	Denmark	pT2	HIGH	papillary	not determined	Female	76
+972-1 (39G2)	1	Denmark	pTa	LOW	papillary	not determined	Male	82
+972-1 (40G2)	2	Denmark	pTa	LOW	papillary	not determined	Male	82
+99_UK (38g1)	1	England	pTa	LOW	papillary	no cis	Male	54
+99_UK (39g1)	2	England	pTa	LOW	papillary	no cis	Male	54
+992-1 (16g2)	1	Denmark	pTa	LOW	papillary	no cis	Male	67
+992-1 (17g2)	2	Denmark	pTa	LOW	papillary	no cis	Male	67
+9923_S (13g2)	1	Sweden	pT1	HIGH	papillary	not determined	Male	-
+9923_S (16g2)	2	Sweden	pT1	HIGH	papillary	not determined	Male	-
+997-1 (65g1)	1	Denmark	pTa	PUNLMP	papillary	no cis	Male	52
+997-1 (66g1)	2	Denmark	pTa	PUNLMP	papillary	no cis	Male	52
+998-1 (22g2)	1	Denmark	pT1b	HIGH	papillary	no cis	Male	53
+998-1 (7g2)	2	Denmark	pT1b	HIGH	papillary	no cis	Male	53
+Esp101_E (35g2)	1	Spain	pT1	HIGH	papillary	not determined	Male	51
+Esp101_E (36g2)	2	Spain	pT1	HIGH	papillary	not determined	Male	51
+Esp104_E (37g1)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	45
+Esp104_E (38g1)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	45
+Esp112_E (43g2)	1	Spain	pTa	LOW	papillary	not determined	Male	57
+Esp112_E (44g2)	2	Spain	pTa	LOW	papillary	not determined	Male	57
+Esp12_E (7g2)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	77
+Esp12_E (8g2)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	77
+Esp15_E (10g1)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	70
+Esp15_E (9g1)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	70
+Esp21_E (10g2)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	74
+Esp21_E (9g2)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	74
+Esp27_E (11g2)	1	Spain	pT2	HIGH	papillary + solid	not determined	Male	77
+Esp27_E (12g2)	2	Spain	pT2	HIGH	papillary + solid	not determined	Male	77
+Esp30_ E (13g1)	1	Spain	pTa	LOW	papillary	not determined	Male	71
+Esp30_ E (14g1)	2	Spain	pTa	LOW	papillary	not determined	Male	71
+Esp33_E (13g2)	1	Spain	pT2	HIGH	-	not determined	-	-
+Esp33_E (14g2)	2	Spain	pT2	HIGH	-	not determined	-	-
+Esp34_E (15g1)	1	Spain	pTa	LOW	papillary	not determined	Male	80
+Esp34_E (16g1)	2	Spain	pTa	LOW	papillary	not determined	Male	80
+Esp37_E (15g2)	1	Spain	pTa	HIGH	papillary	not determined	Male	71
+Esp37_E (16g2)	2	Spain	pTa	HIGH	papillary	not determined	Male	71
+Esp38_E (17g1)	1	Spain	pTa	LOW	papillary	not determined	Female	68
+Esp38_E (18g1)	2	Spain	pTa	LOW	papillary	not determined	Female	68
+Esp40_E (17g2)	1	Spain	pT2	HIGH	solid	not determined	Male	79
+Esp40_E (18g2)	2	Spain	pT2	HIGH	solid	not determined	Male	79
+Esp46_E (20g1)	1	Spain	pT1a	HIGH	papillary	not determined	Male	72
+Esp46_E (21g1)	2	Spain	pT1a	HIGH	papillary	not determined	Male	72
+Esp49_E (20g2)	1	Spain	pTa	LOW	papillary	not determined	Male	68
+Esp49_E (21g2)	2	Spain	pTa	LOW	papillary	not determined	Male	68
+Esp52_E (22g1)	1	Spain	pTa	LOW	papillary	not determined	Male	73
+Esp52_E (23g1)	2	Spain	pTa	LOW	papillary	not determined	Male	73
+Esp55_E (41g2)	1	Spain	pT2	HIGH	papillary + solid	not determined	Male	67
+Esp55_E (42g2)	2	Spain	pT2	HIGH	papillary + solid	not determined	Male	67
+Esp58_E (22g2)	1	Spain	pTa	HIGH	papillary	not determined	Male	70
+Esp58_E (23g2)	2	Spain	pTa	HIGH	papillary	not determined	Male	70
+Esp61_E (24g1)	1	Spain	pTa	LOW	papillary	not determined	Male	58
+Esp61_E (30g1)	2	Spain	pTa	LOW	papillary	not determined	Male	58
+Esp64_E (24g2)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	64
+Esp64_E (30g2)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	64
+Esp66_E (31g1)	1	Spain	pT1	HIGH	papillary	not determined	Male	78
+Esp66_E (32g1)	2	Spain	pT1	HIGH	papillary	not determined	Male	78
+Esp69_E (31g2)	1	Spain	pT2	HIGH	papillary	not determined	Male	75
+Esp69_E (32g2)	2	Spain	pT2	HIGH	papillary	not determined	Male	75
+Esp7_E (19g1)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	54
+Esp7_E (6g1)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	54
+Esp80_E (33g1)	1	Spain	pTa	LOW	papillary	not determined	Male	57
+Esp80_E (34g1)	2	Spain	pTa	LOW	papillary	not determined	Male	57
+Esp86_E (35g1)	1	Spain	pT2	HIGH	papillary	not determined	Male	57
+Esp86_E (36g1)	2	Spain	pT2	HIGH	papillary	not determined	Male	57
+Esp9_E (7g1)	1	Spain	pT2	HIGH	papillary	not determined	Male	69
+Esp9_E (8g1)	2	Spain	pT2	HIGH	papillary	not determined	Male	69
+Esp95_E (43g1)	1	Spain	pTa	PUNLMP	papillary	not determined	Male	77
+Esp95_E (44g1)	2	Spain	pTa	PUNLMP	papillary	not determined	Male	77

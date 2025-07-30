@@ -1,0 +1,478 @@
+---
+title: "Extra cases Setting 1: Single effects on endpoint of interest"
+# author: Javier Mtz.-Rdz.
+date-format: long
+number-sections: true
+number-depth: 4
+fig-dpi: 400
+format: 
+  pdf:
+    documentclass: article
+    header-includes: |
+      \usepackage[left=0.7in,right=0.7in,
+      top=0.7in,bottom=0.5in,footskip=0.7in]{geometry} 
+      \usepackage[document]{ragged2e}
+      \usepackage{amsmath,amsthm,amssymb,amsfonts}
+      \usepackage{mathtools}
+      % Using kp fonts
+      \usepackage{kpfonts}
+      \usepackage{dsfont}
+      \usepackage{centernot}
+      \usepackage[usenames,dvipsnames,table]{xcolor}
+      \usepackage{booktabs} % For improved table lines
+      \renewcommand{\arraystretch}{1} % Increase row spacing
+      \renewcommand\thefigure{\arabic{figure}}
+    fontsize: 12pt
+    colorlinks: true
+knitr:
+  opts_chunk:
+    comment: "#>"
+    message: FALSE
+    dev: "png"
+    fig.width: 8
+    fig.height: 4.5
+    fig.align: center
+editor_options: 
+  chunk_output_type: console
+bibliography: competing-risk.bib
+---
+
+```{r preprocessing, include=FALSE}
+# Setup ----
+## Packages to use ----
+
+#' To install mytidyfunctions, you need 
+#' remotes::install_github("JavierMtzRdz/mytidyfunctions")
+if (!require("pacman")) install.packages("pacman")
+if (!require("mytidyfunctions")) remotes::install_github("JavierMtzRdz/mytidyfunctions")
+
+
+pacman::p_load(tidyverse, janitor, writexl, 
+              readxl, scales, mytidyfunctions,
+              patchwork, here, 
+              mtool, bench, kableExtra)
+
+library(casebase)
+library(future.apply)
+library(glmnet)
+library(mtool)
+library(parallel)
+library(tictoc)
+library(tidyverse)
+library(foreach)
+library(survival)
+library(cmprsk)
+library(glue)
+library(pec)
+library(survminer)
+
+source(here("paper","code", "fitting_functionsV2.R"))
+
+## Load fonts ----
+extrafont::loadfonts(quiet = TRUE)
+
+## Set theme ------
+mytidyfunctions::set_mytheme(text = element_text(family = "Times New Roman"))
+
+
+# Set-up process
+
+save <- F
+
+```
+
+After reviewing the results in @Tamvada:2023, we decided to assess performance across settings with varying numbers of covariates and different proportions of true covariates. Specifically, this involved using an intermediate sample size ($p = 500$) and changing the number of true covariates. While the previous analysis kept the number of covariates constant, in the new setup we maintained the same ratio of variables to ensure consistency.
+
+```{r}
+#| echo: false
+#| warning: false
+
+# Load coefficients
+name_files <- list.files(here("paper", "results"), 
+                         pattern = 'coefficients_',
+           recursive = T, full.names = T)
+name_model <-  tibble(name_files_comp = name_files,
+                      name = str_extract(name_files, "(?<=coefficients_)(.*?)(?=.csv)"))
+# walk(name_files,
+     # ~ file.rename(.x, str_replace(.x, "tting-1", "tting-5")))
+
+
+data_proj <- name_model %>%
+  select(name_files_comp, name) %>% 
+  separate(name, sep = "_", 
+           into = c("setting", "sim", "p", "k"),
+           remove = F) %>% 
+  mutate(setting = as.numeric(str_remove(setting, "setting-")),
+         sim = as.numeric(str_remove(sim, "iter-")),
+         p = as.numeric(str_remove(p, "p-")),
+         k = as.numeric(str_remove(k, "k-")),
+         dim = glue::glue("p = {p}, k = {k}", .sep = "=")) %>% 
+    filter(setting == 1) %>% #Check
+  arrange(p, k)
+
+
+```
+
+# Simulations
+
+Each simulation was run 20 times with a sample size of $n=400$. The covariate data, $X$, for the $p$ predictors were generated from a multivariate normal distribution with a mean of zero, $X \sim \mathcal{N}(0, \Sigma)$. The covariance matrix $\Sigma$ was defined to have an exchangeable correlation structure where the correlation between the true influential covariates was $\rho = 0.5$. The simulations were designed for a non-proportional hazards setting. For a scenario with $p$ total predictors and $k$ true predictors (e.g., $k=20$), the coefficient vectors for the two events ($\beta_1$ and $\beta_2$) were defined as:
+<!-- $$ -->
+<!-- \beta_1 = (\underbrace{1, \dots, 1}_{k}, \underbrace{0, \dots, 0}_{p - k})^T -->
+<!-- $$ -->
+<!-- $$ -->
+<!-- \beta_2 = (\underbrace{0, \dots, 0}_{p})^T -->
+<!-- $$ -->
+In this structure, $k/2$ predictors influence event 1, and a distinct set of $k/2$ predictors influences the competing event, with all other $p-k$ predictors having no effect.
+
+The competing models for the experiment are the following: 
+
+
+* **Elastic-net casebase (enet-casebase):** The penalty parameter, $\lambda_{min}$, is tuned using 5-fold cross-validation due to computational constraints. To fit a Weibull hazard, the time variable is included as a covariate in the form $\log(t)$. This model is trained with SVRG.
+
+* **Elastic-net casebase (enet-casebase-Acc):** This model is also trained with AccSVRG.
+
+* **Elastic-net Independent Cox (enet-iCR):** For this model, the penalty parameter, $\lambda_{min}$, is tuned using 10-fold cross-validation, with the partial likelihood deviance used as the performance metric.
+
+* **Elastic-net Cox with shared penalty (enet-penCR):** This model's penalty parameter, $\lambda_{min}$, is tuned using 10-fold cross-validation across a 30 \times 30 grid. The Brier score for event 1 serves as the performance metric.
+
+
+```{r}
+#| echo: false
+#| warning: false
+if (F){
+coefs_mod <- map_df(1:nrow(data_proj), 
+                    function(i){data_proj[i,-1] %>% 
+    bind_cols(suppressMessages(read_csv(data_proj$name_files_comp[i])) %>% 
+                  rename(model = "...1") #%>% 
+                  # mutate(model = case_match(model,
+                  #                           "iCR.bias" ~ "enet-iCR",
+                  #                           "penCRbias" ~ "enet-penCR",
+                  #                           "CB-bias" ~ "enet-casebase",
+                  #                           "CB-bias-Acc" ~ "enet-casebase-Acc",
+                  #                           "postCB-bias" ~ "postenet-casebase",
+                  #                           "postCB-bias-Acc" ~ "postenet-casebase-Acc"))
+              ) %>% 
+    pivot_longer(cols = starts_with("X"),
+                 names_to = "var",
+                 values_to = "coef")})
+# coefs_mod <- coefs_mod %>% 
+#     filter(!str_detect(model, "bias"))
+
+saveRDS(coefs_mod, here("paper", "results", "coefs_mod.rds"))
+}
+coefs_mod <- readRDS(here("paper", "results", "coefs_mod.rds"))
+
+
+```
+
+```{r}
+#| echo: false
+#| warning: false
+
+vec_mse_bias <- function(.x, p, k,
+                         sett){
+    p <- unique(p)
+    k <- unique(k)
+    setting <- unique(sett)
+    beta1 <- c(rep(0, p))
+    beta2 <- c(rep(0, p))
+    nu_ind <- seq(k)
+    pars_sett1 <- rep(0, 4)
+    pars_sett2 <- rep(0, 4)
+    if (setting == 1) {
+        pars_sett1 <- c(1, 1, 1, 1)
+        pars_sett2 <- c(0, 0, 0, 0)
+    }
+    if (setting == 2) {
+        pars_sett1 <- c(1, 0, 1, 0)
+        pars_sett2 <- c(0, 1, 0, 1)
+    }
+    if (setting == 5) {
+        pars_sett1 <- c(1, 1, 1, 1)
+        pars_sett2 <- c(-1, -1, -1, -1)
+    }
+    # Here out of 20 predictors, 10 should be non-zero 
+    beta1[nu_ind] <- c(rep(pars_sett1[1], k/4), 
+                       rep(pars_sett1[2], k/4), 
+                       rep(pars_sett1[3], k/4), 
+                       rep(pars_sett1[4], k/4))
+    beta2[nu_ind] <- c(rep(pars_sett2[1], k/4), 
+                       rep(pars_sett2[2], k/4), 
+                       rep(pars_sett2[3], k/4), 
+                       rep(pars_sett2[4], k/4))
+    
+    if (setting == 3) {
+        beta1[nu_ind] <- rep(c(0.5, -0.5), k/2)
+        beta2[nu_ind] <- rep(c(-0.5, 0.5), k/2)
+    }
+    if (setting == 4) {
+        pars_sett1 <- c(1, 0.5, 1, 0)
+        pars_sett2 <- c(0, 0.5, 0, 1)
+        beta1[nu_ind] <- rep(c(0.5, -0.5), k/2)
+        beta2[nu_ind] <- rep(c(-0.5, 0.5), k/2)
+        beta1[nu_ind] <- c(rep(pars_sett1[1], k/4), 
+                           rep(c(pars_sett1[2], -pars_sett1[2]), k/8), 
+                           rep(pars_sett1[3], k/4), 
+                           rep(pars_sett1[4], k/4))
+        beta2[nu_ind] <- c(rep(pars_sett2[1], k/4), 
+                           rep(c(-pars_sett2[2], pars_sett2[2]), k/8), 
+                           rep(pars_sett2[3], k/4), 
+                           rep(pars_sett2[4], k/4))
+    }
+    if (setting == 5) {
+        pars_sett1 <- c(1, 0.5, 1, 0)
+        pars_sett2 <- c(0, 0.5, 0, 1)
+        beta1[nu_ind] <- rep(c(0.5, -0.5), k/2)
+        beta2[nu_ind] <- rep(c(-0.5, 0.5), k/2)
+        beta1[nu_ind] <- c(rep(pars_sett1[1], k/4), 
+                           rep(c(pars_sett1[2], -pars_sett1[2]), k/8), 
+                           rep(pars_sett1[3], k/4), 
+                           rep(pars_sett1[4], k/4))
+        beta2[nu_ind] <- c(rep(pars_sett2[1], k/4), 
+                           rep(c(-pars_sett2[2], pars_sett2[2]), k/8), 
+                           rep(pars_sett2[3], k/4), 
+                           rep(pars_sett2[4], k/4))
+    }
+    mse_bias(.x, beta1)
+}
+
+vec_varsel_perc <- function(.x, p, k, sett){
+    p <- unique(p)
+    k <- unique(k)
+    setting <- unique(sett)
+    beta1 <- c(rep(0, p))
+    beta2 <- c(rep(0, p))
+    nu_ind <- seq(k)
+    pars_sett1 <- rep(0, 4)
+    pars_sett2 <- rep(0, 4)
+    if (setting == 1) {
+        pars_sett1 <- c(1, 1, 1, 1)
+        pars_sett2 <- c(0, 0, 0, 0)
+    }
+    if (setting == 2) {
+        pars_sett1 <- c(1, 0, 1, 0)
+        pars_sett2 <- c(0, 1, 0, 1)
+    }
+    if (setting == 5) {
+        pars_sett1 <- c(1, 1, 1, 1)
+        pars_sett2 <- c(-1, -1, -1, -1)
+    }
+    # Here out of 20 predictors, 10 should be non-zero 
+    beta1[nu_ind] <- c(rep(pars_sett1[1], k/4), 
+                       rep(pars_sett1[2], k/4), 
+                       rep(pars_sett1[3], k/4), 
+                       rep(pars_sett1[4], k/4))
+    beta2[nu_ind] <- c(rep(pars_sett2[1], k/4), 
+                       rep(pars_sett2[2], k/4), 
+                       rep(pars_sett2[3], k/4), 
+                       rep(pars_sett2[4], k/4))
+    
+    if (setting == 3) {
+        beta1[nu_ind] <- rep(c(0.5, -0.5), k/2)
+        beta2[nu_ind] <- rep(c(-0.5, 0.5), k/2)
+    }
+    if (setting == 4) {
+        pars_sett1 <- c(1, 0.5, 1, 0)
+        pars_sett2 <- c(0, 0.5, 0, 1)
+        beta1[nu_ind] <- rep(c(0.5, -0.5), k/2)
+        beta2[nu_ind] <- rep(c(-0.5, 0.5), k/2)
+        beta1[nu_ind] <- c(rep(pars_sett1[1], k/4), 
+                           rep(c(pars_sett1[2], -pars_sett1[2]), k/8), 
+                           rep(pars_sett1[3], k/4), 
+                           rep(pars_sett1[4], k/4))
+        beta2[nu_ind] <- c(rep(pars_sett2[1], k/4), 
+                           rep(c(-pars_sett2[2], pars_sett2[2]), k/8), 
+                           rep(pars_sett2[3], k/4), 
+                           rep(pars_sett2[4], k/4))
+    }
+    if (setting == 5) {
+        pars_sett1 <- c(1, 0.5, 1, 0)
+        pars_sett2 <- c(0, 0.5, 0, 1)
+        beta1[nu_ind] <- rep(c(0.5, -0.5), k/2)
+        beta2[nu_ind] <- rep(c(-0.5, 0.5), k/2)
+        beta1[nu_ind] <- c(rep(pars_sett1[1], k/4), 
+                           rep(c(pars_sett1[2], -pars_sett1[2]), k/8), 
+                           rep(pars_sett1[3], k/4), 
+                           rep(pars_sett1[4], k/4))
+        beta2[nu_ind] <- c(rep(pars_sett2[1], k/4), 
+                           rep(c(-pars_sett2[2], pars_sett2[2]), k/8), 
+                           rep(pars_sett2[3], k/4), 
+                           rep(pars_sett2[4], k/4))
+    }
+    varsel_perc(.x, beta1)
+}
+
+```
+
+## Results
+
+The following plot shows the variable selection metrics such as Sensitivity, Specificity, and MCC. 
+
+```{r}
+#| echo: false
+#| warning: false
+
+# data_proj %>% 
+    # count(setting, dim) %>% View
+
+coefs_mod %>% 
+    group_by(name, model, setting, dim, p, k) %>% 
+    summarise(bias_mse = vec_mse_bias(coef, p, k, setting)) %>% 
+    arrange(setting, p, k) %>% 
+    filter(!str_detect(model, "bias"),
+           !is.nan(bias_mse)) %>% 
+    ggplot(aes(x = model, y = bias_mse,
+               fill = model)) +
+    geom_boxplot() +
+    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim)) +
+     theme(axis.text.x = #element_text(angle = 90, vjust = 0.5, hjust=1)
+              element_blank()) +
+    labs(title = "MSE of Coefficients",
+         fill = "Model",
+         y = "Mean Squared Error of event 1\ncoefficients",
+         x = element_blank())
+
+```
+
+```{r}
+#| fig-height: 7
+
+coefs_mod %>% 
+    filter(sim <= 50,
+           setting == 1) %>% 
+    group_by(name, model, setting, p, k, dim) %>% 
+    summarise(selec_mea = vec_varsel_perc(coef, p, k, setting)) %>% 
+    unnest(selec_mea) %>% 
+    arrange(setting, p, k) %>% 
+    filter(!str_detect(model, "post|bias")) %>% 
+    pivot_longer(Sensitivity:MCC, 
+                 names_to = "metric", 
+                 values_to = "value") %>% 
+    ggplot(aes(x = model, y = value,
+               fill = model)) +
+    geom_boxplot(show.legend = T) +
+    facet_grid(fct_inorder(dim)~metric) +
+    theme(axis.text.x = #element_text(angle = 90, vjust = 0.5, hjust=1)
+              element_blank()) +
+    labs(title = "Selection Performance",
+         subtitle = "Setting 1",
+         fill = "Model",
+         y = element_blank(),
+         x = element_blank())
+
+```
+
+```{r}
+#| fig-height: 7
+
+coefs_mod %>% 
+    filter(sim <= 50,
+           setting == 2) %>% 
+    group_by(name, model, setting, p, k, dim) %>% 
+    summarise(selec_mea = vec_varsel_perc(coef, p, k, setting)) %>% 
+    unnest(selec_mea) %>% 
+    arrange(setting, p, k) %>% 
+    filter(!str_detect(model, "post|bias")) %>% 
+    pivot_longer(Sensitivity:MCC, 
+                 names_to = "metric", 
+                 values_to = "value") %>% 
+    ggplot(aes(x = model, y = value,
+               fill = model)) +
+    geom_boxplot(show.legend = T) +
+    facet_grid(fct_inorder(dim)~metric) +
+    theme(axis.text.x = #element_text(angle = 90, vjust = 0.5, hjust=1)
+              element_blank()) +
+    labs(title = "Selection Performance",
+         subtitle = "Setting 2",
+         fill = "Model",
+         y = element_blank(),
+         x = element_blank())
+
+```
+
+```{r}
+#| fig-height: 7
+
+coefs_mod %>% 
+    filter(sim <= 50,
+           setting == 3) %>% 
+    group_by(name, model, setting, p, k, dim) %>% 
+    summarise(selec_mea = vec_varsel_perc(coef, p, k, setting)) %>% 
+    unnest(selec_mea) %>% 
+    arrange(setting, p, k) %>% 
+    filter(!str_detect(model, "post|bias")) %>% 
+    pivot_longer(Sensitivity:MCC, 
+                 names_to = "metric", 
+                 values_to = "value") %>% 
+    ggplot(aes(x = model, y = value,
+               fill = model)) +
+    geom_boxplot(show.legend = T) +
+    facet_grid(fct_inorder(dim)~metric) +
+    theme(axis.text.x = #element_text(angle = 90, vjust = 0.5, hjust=1)
+              element_blank()) +
+    labs(title = "Selection Performance",
+         subtitle = "Setting 3",
+         fill = "Model",
+         y = element_blank(),
+         x = element_blank())
+
+```
+
+```{r}
+#| fig-height: 7
+
+coefs_mod %>% 
+    filter(sim <= 50,
+           setting == 4) %>% 
+    group_by(name, model, setting, p, k, dim) %>% 
+    summarise(selec_mea = vec_varsel_perc(coef, p, k, setting)) %>% 
+    unnest(selec_mea) %>% 
+    arrange(setting, p, k) %>% 
+    filter(!str_detect(model, "post|bias")) %>% 
+    pivot_longer(Sensitivity:MCC, 
+                 names_to = "metric", 
+                 values_to = "value") %>% 
+    ggplot(aes(x = model, y = value,
+               fill = model)) +
+    geom_boxplot(show.legend = T) +
+    facet_grid(fct_inorder(dim)~metric) +
+    theme(axis.text.x = #element_text(angle = 90, vjust = 0.5, hjust=1)
+              element_blank()) +
+    labs(title = "Selection Performance",
+         subtitle = "Setting 4",
+         fill = "Model",
+         y = element_blank(),
+         x = element_blank())
+
+```
+
+```{r}
+#| fig-height: 7
+
+coefs_mod %>% 
+    filter(sim <= 50,
+           setting == 5) %>% 
+    group_by(name, model, setting, p, k, dim) %>% 
+    summarise(selec_mea = vec_varsel_perc(coef, p, k, setting)) %>% 
+    unnest(selec_mea) %>% 
+    arrange(setting, p, k) %>% 
+    filter(!str_detect(model, "post|bias")) %>% 
+    pivot_longer(Sensitivity:MCC, 
+                 names_to = "metric", 
+                 values_to = "value") %>% 
+    ggplot(aes(x = model, y = value,
+               fill = model)) +
+    geom_boxplot(show.legend = T) +
+    facet_grid(fct_inorder(dim)~metric) +
+    theme(axis.text.x = #element_text(angle = 90, vjust = 0.5, hjust=1)
+              element_blank()) +
+    labs(title = "Selection Performance",
+         subtitle = "Setting 5",
+         fill = "Model",
+         y = element_blank(),
+         x = element_blank())
+
+```
+
+# References
+

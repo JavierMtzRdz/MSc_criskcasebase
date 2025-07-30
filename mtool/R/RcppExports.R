@@ -21,6 +21,14 @@ MultinomLogistic <- function(X, Y, offset, K, reg_p, penalty, regul, transpose, 
     .Call(`_mtool_MultinomLogistic`, X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores)
 }
 
+scalar_scad_prox <- function(val, lambda, a) {
+    .Call(`_mtool_scalar_scad_prox`, val, lambda, a)
+}
+
+proximalSCAD <- function(U, lam1, a_scad = 3.7, pos = FALSE) {
+    invisible(.Call(`_mtool_proximalSCAD`, U, lam1, a_scad, pos))
+}
+
 grad_ls_loss2 <- function(x, y, param, p) {
     .Call(`_mtool_grad_ls_loss2`, x, y, param, p)
 }
@@ -29,23 +37,27 @@ grad_logistic_loss2 <- function(x, y, param, p) {
     .Call(`_mtool_grad_logistic_loss2`, x, y, param, p)
 }
 
-MultinomLogistic2 <- function(X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores) {
-    .Call(`_mtool_MultinomLogistic2`, X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores)
-}
-
-MultinomLogistic3 <- function(X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores) {
-    .Call(`_mtool_MultinomLogistic3`, X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores)
+MultinomLogistic2 <- function(X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores, verbose = FALSE, param_start = NULL) {
+    .Call(`_mtool_MultinomLogistic2`, X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores, verbose, param_start)
 }
 
 MultinomLogisticExp <- function(X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores) {
     .Call(`_mtool_MultinomLogisticExp`, X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores)
 }
 
-MultinomLogisticAcc <- function(X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, momentum_gamma, tolerance, niter_inner, maxit, ncores, pos = FALSE) {
-    .Call(`_mtool_MultinomLogisticAcc`, X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, momentum_gamma, tolerance, niter_inner, maxit, ncores, pos)
+MultinomLogisticAcc <- function(X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, momentum_gamma, tolerance, niter_inner, maxit, ncores, pos = FALSE, verbose = FALSE, param_start = NULL) {
+    .Call(`_mtool_MultinomLogisticAcc`, X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, momentum_gamma, tolerance, niter_inner, maxit, ncores, pos, verbose, param_start)
 }
 
 MultinomLogisticSARAH <- function(X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores) {
     .Call(`_mtool_MultinomLogisticSARAH`, X, Y, offset, K, reg_p, penalty, regul, transpose, grp_id, etaG, grp, grpV, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, niter_inner, maxit, ncores)
+}
+
+MultinomLogisticPCD <- function(X, Y, offset_vec, K_classes, reg_p, penalty_code, regul, transpose, grp_id, etaG, grp_mat, grpV_mat, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, maxit, ncores, pos = FALSE) {
+    .Call(`_mtool_MultinomLogisticPCD`, X, Y, offset_vec, K_classes, reg_p, penalty_code, regul, transpose, grp_id, etaG, grp_mat, grpV_mat, own_var, N_own_var, lam1, lam2, lam3, learning_rate, tolerance, maxit, ncores, pos)
+}
+
+MultinomLogisticCCD <- function(X, Y, offset_vec, K_classes, reg_p, penalty_code, regul, transpose_prox_input, grp_id, etaG, grp_mat, grpV_mat, own_var, N_own_var, lam1, lam2, lam3, learning_rate_scale = 1.0, tolerance = 1e-5, kkt_abs_check_tol = 1e-6, maxit = 100L, max_ccd_passes_active_set = 5L, ncores = 1L, pos = FALSE) {
+    .Call(`_mtool_MultinomLogisticCCD`, X, Y, offset_vec, K_classes, reg_p, penalty_code, regul, transpose_prox_input, grp_id, etaG, grp_mat, grpV_mat, own_var, N_own_var, lam1, lam2, lam3, learning_rate_scale, tolerance, kkt_abs_check_tol, maxit, max_ccd_passes_active_set, ncores, pos)
 }
 

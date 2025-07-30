@@ -14,7 +14,7 @@ library(pec)
 library(survminer)
 
 # Fitting functions 
-source("../src/fitting_functions.R")
+source(here::here("paper/code/fitting_functions.R"))
 
 
 # Set seed
@@ -94,7 +94,7 @@ penCR = cv.glmnet.CR(data = train, family="cox", alpha= 0.7, standardize= TRUE,
                      nlambda = 20, t.BS = median(train$ftime), seed = 115, causeOfInt = 1,
                      nfold = 5)
 
-cc_min_penCR1 <- penCR$glmnet.fits$models$`Cause 1`$glmnet.res$lambda[penCR$min.index[1]]
+ cc_min_penCR1 <- penCR$glmnet.fits$models$`Cause 1`$glmnet.res$lambda[penCR$min.index[1]]
 cc_min_penCR2 <- penCR$glmnet.fits$models$`Cause 2`$glmnet.res$lambda[penCR$min.index[2]]
 
 # Fit on validation set 

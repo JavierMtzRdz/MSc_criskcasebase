@@ -1,0 +1,5 @@
+scp /Users/javiermtz/Library/Mobile\ Documents/com~apple~CloudDocs/UBC-courses/MSc_criskcasebase/mtool_1.0.tar.gz javier.mr@r9-gcohen1.stat.ubc.ca:~/MSc_criskcasebase/
+
+scp /Users/javiermtz/Library/Mobile\ Documents/com~apple~CloudDocs/UBC-courses/MSc_criskcasebase/paper/code/fitting_functionsV2.R javier.mr@r9-gcohen1.stat.ubc.ca:~/MSc_criskcasebase/code/
+
+scp /Users/javiermtz/Library/Mobile\ Documents/com~apple~CloudDocs/UBC-courses/MSc_criskcasebase/paper/code/settin1-exp.R javier.mr@r9-gcohen1.stat.ubc.ca:~/MSc_criskcasebase/code/

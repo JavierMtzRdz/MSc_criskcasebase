@@ -1,0 +1,348 @@
+---
+title: "Comparing Variable Selection"
+# author: Javier Mtz.-Rdz.
+date-format: long
+number-sections: true
+number-depth: 4
+fig-dpi: 400
+format: 
+  pdf:
+    documentclass: article
+    header-includes: |
+      \usepackage[left=0.7in,right=0.7in,
+      top=0.7in,bottom=0.5in,footskip=0.7in]{geometry} 
+      \usepackage[document]{ragged2e}
+      \usepackage{amsmath,amsthm,amssymb,amsfonts}
+      \usepackage{mathtools}
+      % Using kp fonts
+      \usepackage{kpfonts}
+      \usepackage{dsfont}
+      \usepackage{centernot}
+      \usepackage[usenames,dvipsnames,table]{xcolor}
+      \usepackage{booktabs} % For improved table lines
+      \renewcommand{\arraystretch}{1} % Increase row spacing
+      \renewcommand\thefigure{\arabic{figure}}
+    fontsize: 12pt
+    colorlinks: true
+knitr:
+  opts_chunk:
+    comment: "#>"
+    message: FALSE
+    dev: "png"
+    fig.width: 8
+    fig.height: 4.5
+    fig.align: center
+editor_options: 
+  chunk_output_type: console
+bibliography: competing-risk.bib
+---
+
+```{r preprocessing, include=FALSE}
+# Setup ----
+## Packages to use ----
+
+#' To install mytidyfunctions, you need 
+#' remotes::install_github("JavierMtzRdz/mytidyfunctions")
+if (!require("pacman")) install.packages("pacman")
+if (!require("mytidyfunctions")) remotes::install_github("JavierMtzRdz/mytidyfunctions")
+
+
+pacman::p_load(tidyverse, janitor, writexl, 
+              readxl, scales, mytidyfunctions,
+              patchwork, here, 
+              mtool, bench, kableExtra)
+
+library(casebase)
+library(future.apply)
+library(glmnet)
+library(mtool)
+library(parallel)
+library(tictoc)
+library(tidyverse)
+library(foreach)
+library(survival)
+library(cmprsk)
+library(glue)
+library(pec)
+library(survminer)
+
+
+source(here(#"MSc_criskcasebase",
+            "paper","code", "fitting_functionsV2.R"))
+
+## Load fonts ----
+extrafont::loadfonts(quiet = TRUE)
+
+## Set theme ------
+mytidyfunctions::set_mytheme(text = element_text(family = "Times New Roman"))
+
+
+# Set-up process
+
+save <- F
+
+```
+
+## Simulation Settings {.unnumbered}
+
+The experiments simulate competing risks data from two primary frameworks: cause-specific proportional hazards models and a proportional sub-distribution hazards model. For all simulations, the sample size is fixed at $n=400$, while the number of covariates, $p$, is varied between a low-dimensional case ($p=120$) and a high-dimensional case ($p=1000$).
+
+Data is primarily generated under a cause-specific proportional hazards framework using a Weibull baseline hazard. The hazard function for cause $j$ ($j=1,2$) for an individual $i$ with covariates $X_i$ is given by
+$$ \alpha_{ij}(t;X_{i})=\lambda_{0j}\exp(\beta_{j}^{T}X_{i})\gamma_{j}t^{\gamma_{j}-1} $$
+where $\lambda_{0j}$ is the baseline hazard rate parameter and $\gamma_j$ is the shape parameter for the Weibull distribution. In the provided simulations, the shape parameters are fixed at $\gamma_1 = \gamma_2 = 1.5$. The baseline hazard rates are set to $\lambda_{01} = 0.55$ and $\lambda_{02} = 0.35$. Censoring times are generated from an exponential distribution, calibrated to achieve approximately 25%.
+The simulations consider two events ($j=1, 2$) with corresponding coefficient vectors $\beta_1$ and $\beta_2$, each of length $p$. A subset of these coefficients, corresponding to the $k$ true variables, are non-zero. The non-zero coefficients are defined across five different settings:
+
+* **Setting 1: Single effects on endpoint of interest.** Only the first 20 variables are associated with the cause-specific hazard of event 1, and no variables are associated with event 2. The coefficient vectors are
+    $$ \beta_1 = (\underbrace{1, \dots, 1}_{k}, \underbrace{0, \dots, 0}_{p-k})^\top, \quad \beta_2 = (\underbrace{0, \dots, 0}_{p})^\top $$
+
+* **Setting 2: Single effects on both endpoints.** Two distinct sets of 10 variables each influence the two hazards separately.
+    $$\beta_1 = (\underbrace{1, \dots, 1}_{k/4}, \underbrace{0, \dots, 0}_{k/4},
+    \underbrace{1, \dots, 1}_{k/4}, \underbrace{0, \dots, 0}_{k/4},
+    \underbrace{0, \dots, 0}_{p-k})^\top, \quad \beta_2 = (\underbrace{0, \dots, 0}_{k/4}, \underbrace{1, \dots, 1}_{k/4}, \underbrace{0, \dots, 0}_{k/4}, \underbrace{1, \dots, 1}_{k/4}, \underbrace{0, \dots, 0}_{p-k})^\top$$
+
+    
+* **Setting 3: Opposing effects.}**A set of 20 variables has opposing effects on the two event types.
+$$\beta_1 = (\underbrace{+0.5, -0.5, \dots, +0.5, -0.5}_{k}, \underbrace{0, \dots, 0}_{p-k})^\top, \quad \beta_2 = (\underbrace{-0.5, +0.5, \dots, -0.5, +0.5}_{k}, \underbrace{0, \dots, 0}_{p-k})^\top$$
+
+* **Setting 4: Mixture of effects.** This scenario involves a mix of single and opposing effects as shown below.
+$$\beta_1 = (\underbrace{1, \dots, 1}_{k/4}, \underbrace{0.5, -0.5, \dots, 0.5, -0.5}_{k/4},
+    \underbrace{1, \dots, 1}_{k/4}, \underbrace{0, \dots, 0}_{k/4},
+    \underbrace{0, \dots, 0}_{p-k})^\top,$$
+    $$\beta_2 = (\underbrace{0, \dots, 0}_{k/4}, \underbrace{-0.5, 0.5, \dots, -0.5, 0.5}_{k/4}, \underbrace{0, \dots, 0}_{k/4}, \underbrace{1, \dots, 1}_{k/4}, \underbrace{0, \dots, 0}_{p-k})^\top$$
+    
+* **Setting 5: Non-proportional hazards.** This setting is simulated under the sub-distribution hazards framework, which violates the proportionality assumption for the cause-specific hazards. The coefficient structure is specified as:
+     $$ \beta_1 = (\underbrace{1, \dots, 1}_{k}, \underbrace{0, \dots, 0}_{p-k})^\top, \quad \beta_2 = (\underbrace{-1, \dots, -1}_{k}, \underbrace{0, \dots, 0}_{p-k})^\top $$
+
+The covariates $X$ are generated from a multivariate normal distribution with mean $\mu=0$ and a specified correlation structure. For settings 1 and 5, an exchangeable correlation structure is used among the true positive variables with $\rho=0.5$. For settings 2, 3, and 4, a block correlation structure with 4 blocks is used for the true positive variables. In all settings, the noise variables are generated with an exchangeable correlation of $\rho=0.1$.
+
+For setting 5, data is generated from a proportional sub-distribution hazards model as specified by @FineGray:1999. 
+
+## Competing Algorithms {.unnumbered}
+
+In this document, two algorithms are compared in terms of selection performance. 
+
+* **Elastic-net case-base (enet-casebase).** This method uses case-base sampling with an elastic-net penalization
+* **Elastic-net Independent Cox (enet-iCR):** This approach fits separate elastic-net penalized Cox models for cause 1. 
+
+
+## Results {.unnumbered}
+
+For each simulation, the algorithms were fitted using the lambda values generated through cross-validation, although cross-validation was not actually performed in this case. The number of lambda values was set to 50. Consequently, the plots display smoothed lines for each simulation and setting. It’s worth noting that the average results appear more scattered. Therefore, I opted for the smoothed lines to provide a clearer comparison. 
+
+
+```{r}
+#| echo: false
+#| warning: false
+
+# Load coefficients
+name_files <- list.files(here(#"MSc_criskcasebase",
+                              "paper", "results",
+                              "lambda_paths"), 
+                         pattern = 'models_',
+           recursive = T, full.names = T)
+name_model <-  tibble(name_files_comp = name_files,
+                      name = str_extract(name_files, "(?<=models_)(.*?)(?=.rds)")) %>% 
+    mutate(name = str_replace(name, "selec", "setting"))
+# walk(name_files,
+     # ~ file.rename(.x, str_replace(.x, "tting-1", "tting-5")))
+
+
+data_proj <- name_model %>%
+  select(name_files_comp, name) %>% 
+  separate(name, sep = "_", 
+           into = c("setting", "sim", "p", "k"),
+           remove = F) %>% 
+  mutate(setting = as.numeric(str_remove(setting, "setting-")),
+         sim = as.numeric(str_remove(sim, "iter-")),
+         p = as.numeric(str_remove(p, "p-")),
+         k = as.numeric(str_remove(k, "k-")),
+         dim = glue::glue("p = {p}, k = {k}", .sep = "=")) %>% 
+    filter(sim <= 15) %>% #Check
+  arrange(p, k)
+
+
+```
+
+# Simulations
+
+```{r}
+#| echo: false
+#| warning: false
+if (F){
+select_mod <- map_df(1:nrow(data_proj), 
+                    function(i){data_proj[i,-1] %>% 
+                            select(-sim) %>% 
+    bind_cols(suppressMessages(readRDS(data_proj$name_files_comp[i])) %>% 
+                  mutate(model_size = TP + FP) #%>% 
+                  # mutate(model = case_match(model,
+                  #                           "iCR.bias" ~ "enet-iCR",
+                  #                           "penCRbias" ~ "enet-penCR",
+                  #                           "CB-bias" ~ "enet-casebase",
+                  #                           "CB-bias-Acc" ~ "enet-casebase-Acc",
+                  #                           "postCB-bias" ~ "postenet-casebase",
+                  #                           "postCB-bias-Acc" ~ "postenet-casebase-Acc"))
+              )})
+# coefs_mod <- coefs_mod %>% 
+#     filter(!str_detect(model, "bias"))
+
+saveRDS(select_mod, here("paper", "results", "select_mod.rds"))
+}
+select_mod <- readRDS(here("paper", "results", "select_mod.rds")) %>% 
+    filter(!str_detect(model, "SCAD"))
+
+
+```
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+#| include: false
+
+select_mod %>% 
+    filter(p == 120, k == 20) %>% 
+    filter(sim == 10,
+           setting == 1) %>% 
+    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
+               color = model)) +
+    geom_path() +
+    coord_equal()
+
+select_mod %>% 
+    filter(p == 1000, k == 168) %>% 
+    filter(sim == 1,
+           setting == 1) %>% 
+    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
+               color = model)) +
+    geom_path() +
+    coord_equal()
+
+select_mod %>% 
+      filter(p == 1000, k == 168) %>% 
+        filter(sim == 15,
+           setting == 1) %>% 
+    ggplot(aes(x = model_size, y = Sensitivity,
+               color = model)) +
+    geom_path() +
+    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+```
+
+```{r}
+#| eval: false
+#| message: false
+#| warning: false
+#| fig-height: 7
+#| include: false
+
+select_mod %>% 
+    # filter(setting == 1) %>% 
+    arrange(p, model_size) %>% 
+    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
+               color = model)) +
+    geom_smooth(size = 0.5,
+                se = FALSE) +
+    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim)) +
+    coord_equal()
+
+
+sum_selec <- select_mod %>% 
+    # filter(sim <=15) %>%
+    group_by(model, setting, dim, p, k, model_size) %>% 
+    summarise(n_models = n(),
+              across(Sensitivity:MCC, mean))
+
+sum_selec %>% 
+    filter(#setting == 1,
+           model_size %% 10 == 0) %>% 
+    arrange(p, model_size) %>% 
+    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
+               color = model)) +
+    geom_path() +
+    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim)) +
+    coord_equal()
+    
+    
+    
+
+```
+
+
+```{r}
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-height: 7
+select_mod %>% 
+        arrange(p, model_size) %>% 
+    ggplot(aes(x = model_size, y = Sensitivity,
+               color = model)) +
+    # geom_path() +
+    geom_path(aes(group = sim), alpha = 0.01) +
+      geom_smooth(span = 0.2,
+                  size = 0.5,
+                se = FALSE) +
+    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
+               scale = "free_x") 
+
+select_mod %>% 
+        arrange(p, model_size) %>% 
+    ggplot(aes(x = model_size, y = Specificity,
+               color = model)) +
+    # geom_path() +
+    geom_path(aes(group = sim), alpha = 0.01) +
+      geom_smooth(#span = 0.2,
+                  size = 0.5,
+                se = FALSE) +
+    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
+               scale = "free_x") 
+
+select_mod %>% 
+        arrange(p, model_size) %>% 
+    ggplot(aes(x = model_size, y = MCC,
+               color = model)) +
+    # geom_path() +
+    geom_path(aes(group = sim), alpha = 0.01) +
+      geom_smooth(span = 0.2,
+                  size = 0.5,
+                se = FALSE) +
+    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
+               scale = "free_x") 
+
+# sum_selec %>% 
+#     filter(#setting == 1,
+#            model_size %% 10 == 0,
+#            model_size <= 250) %>% 
+#         arrange(p, model_size) %>% 
+#     ggplot(aes(x = model_size, y = Sensitivity,
+#                color = model)) +
+#     geom_path() +
+#     facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
+#                scale = "free_x") 
+# 
+# sum_selec %>% 
+#     filter(#setting == 1,
+#            model_size %% 10 == 0,
+#            model_size <= 250) %>% 
+#         arrange(p) %>% 
+#     ggplot(aes(x = model_size, y = Specificity,
+#                color = model)) +
+#     geom_path() +
+#     facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
+#                scale = "free_x") 
+# 
+# sum_selec %>% 
+#     filter(#setting == 1,
+#            model_size %% 10 == 0,
+#            model_size <= 250) %>% 
+#         arrange(p) %>% 
+#     ggplot(aes(x = model_size, y = MCC,
+#                color = model)) +
+#     geom_path() +
+#     facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
+#                scale = "free_x") 
+
+```
+
+
+# References
+

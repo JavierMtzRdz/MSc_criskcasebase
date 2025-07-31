@@ -64,25 +64,51 @@ create_cbDataset <- function(surv_obj, cov_matrix, ratio = 5) {
 #' Fit case-base sampling model
 #' 
 #' @param cb_data Output of \code{create_cbDataset}
-fit_cbmodel <- function(cb_data, regularization = 'elastic-net',
-                        lambda, alpha = 0.5, unpen_cov = 2,
-                        fit_fun = mtool::mtool.MNlogistic) {
-    stopifnot(alpha >= 0 && alpha <= 1)
+fit_cbmodel <- function(cb_data, regularization = c('elastic-net', 'SCAD'),
+                        lambda, alpha = NULL, unpen_cov = 2,
+                        fit_fun = mtool::mtool.MNlogistic,
+                        param_start = NULL) {
     # Elastic-net reparametrization
-    lambda1 <- lambda*alpha
-    lambda2 <- 0.5*lambda*(1 - alpha)
-    # Prepare covariate matrix with intercept
-    X <- as.matrix(cbind(cb_data$covariates, 1))
-    out <- fit.mtool <- fit_fun(
+    regularization <- rlang::arg_match(regularization)
+    
+    if (regularization == 'elastic-net'){
+        
+        
+        if (is.null(alpha)) {
+            alpha <- 0.5
+        } else {
+            stopifnot(alpha >= 0 && alpha <= 1)
+        }
+        lambda1 <- lambda*alpha
+        lambda2 <- 0.5*lambda*(1 - alpha)
+        # Prepare covariate matrix with intercept
+        X <- as.matrix(cbind(cb_data$covariates, 1))
+    }
+    if (regularization == 'SCAD'){
+        lambda1 <- lambda
+        if (is.null(alpha)) alpha <- 3.7
+        lambda2 <- alpha
+        # Prepare covariate matrix with intercept
+        X <- as.matrix(cbind(cb_data$covariates, 1))
+    }
+    
+    opt_args <- list(
         X = as.matrix(X),
         Y = cb_data$event_ind,
         offset = cb_data$offset,
         N_covariates = unpen_cov,
-        regularization = 'elastic-net',
+        regularization = regularization,
         transpose = FALSE,
         lambda1 = lambda1, lambda2 = lambda2, 
         lambda3 = 0
     )
+    
+    if (!is.null(param_start)){
+        opt_args <- c(opt_args, list(param_start = as.matrix(param_start)))
+    }
+    
+    # Call the optimizer
+    out <- do.call(fit_fun, opt_args)
     
     return(out)
 }
@@ -103,15 +129,16 @@ covAR1 <- function(p, rho) {
     return(rho^exponent)
 }
 
-###########################################################
-#' Cross-validation function for mtool 
-mtool.multinom.cv <- function(train, regularization = 'elastic-net', lambda_max = NULL, alpha = 1, nfold = 10, 
+mtool.multinom <- function(train, regularization = c('elastic-net', 'SCAD'), 
+                           lambda_max = NULL, alpha = NULL,
                               constant_covariates = 2, initial_max_grid = NULL, 
                               precision = 0.001, epsilon = .005, grid_size = 100,
                               plot = FALSE, 
-                              ncores = parallelly::availableCores(), 
+                              ncores = parallelly::availableCores()/2, 
                               seed = NULL, train_ratio = 20,
                               fit_fun = mtool::mtool.MNlogistic) {
+    
+    regularization <- rlang::arg_match(regularization)
     surv_obj_train <- with(train, Surv(ftime, as.numeric(fstatus), type = "mstate"))
     cov_train <- as.matrix(cbind(train[, c(grepl("X", colnames(train)))], time = log(train$ftime)))
     # Create case-base dataset
@@ -120,10 +147,16 @@ mtool.multinom.cv <- function(train, regularization = 'elastic-net', lambda_max 
     if(is.null(lambda_max)) {
         # Lambda max grid for bisection search 
         if(is.null(initial_max_grid)) {
-            initial_max_grid <-  c(0.9, 0.75, 0.5, 0.25, 0.1, 0.08, 0.07, 0.05, 0.01, 0.005)
+            initial_max_grid <-  c(1.2, 0.9, 0.75, 0.5, 0.25, 0.1, 0.08, 0.07, 0.05, 0.01, 0.005)
+            # browser()
+            # fit_val_min_SCAD <- fit_cbmodel(cb_data_train, regularization = regularization,
+            #             lambda = 0.2, alpha = 3.7, unpen_cov = constant_covariates,
+            #             fit_fun = fit_fun)
+            # varsel_perc(fit_val_min_SCAD$coefficients[1:eval(parse(text="p")), 1], beta1)
+            
             fit_val_max <- mclapply(initial_max_grid, 
                                     function(lambda_val) {
-                                        fit_cbmodel(cb_data_train, regularization = 'elastic-net',
+                                        fit_cbmodel(cb_data_train, regularization = regularization,
                                                     lambda = lambda_val, alpha = alpha, unpen_cov = constant_covariates,
                                                     fit_fun = fit_fun)}, mc.cores = ncores)
             non_zero_coefs <-  unlist(lapply(fit_val_max, function(x) {return(x$no_non_zero)}))
@@ -140,7 +173,112 @@ mtool.multinom.cv <- function(train, regularization = 'elastic-net', lambda_max 
             new_max_searchgrid <- seq(lower, upper, length.out = 10) # Change precision
             fit_val_max <-  mclapply(new_max_searchgrid, 
                                      function(lambda_val) {
-                                         fit_cbmodel(cb_data_train, regularization = 'elastic-net',
+                                         fit_cbmodel(cb_data_train, regularization = regularization,
+                                                     lambda = lambda_val, alpha = alpha,
+                                                     unpen_cov = constant_covariates,
+                                                     fit_fun = fit_fun)}, mc.cores = ncores, mc.set.seed = seed)
+            non_zero_coefs <-  unlist(mclapply(fit_val_max, function(x) {return(x$no_non_zero)}, mc.cores = ncores, mc.set.seed = seed))
+            lambda_max <- new_max_searchgrid[which.min(non_zero_coefs)]
+        }
+    }
+    if(regularization == "elastic-net") {
+        lambdagrid <- rev(round(exp(seq(log(lambda_max), log(lambda_max*epsilon), length.out = grid_size)), digits = 10))
+    }
+    if(regularization == "SCAD") {
+        lambdagrid <- rev(round((seq((lambda_max), (lambda_max*epsilon), length.out = grid_size)), digits = 10))
+    }
+    
+    cb_data_train <- as.data.frame(cb_data_train)
+    cb_data_train <- cb_data_train %>%
+        select(-time)
+    # Create folds 
+    
+    train_grid <- cb_data_train
+        # Create X and Y
+        train_grid <- list("time" = cb_data_train$time,
+                         "event_ind" = cb_data_train$event_ind,
+                         "covariates" = cb_data_train[, grepl("covariates", names(train_grid))],
+                         "offset" = cb_data_train$offset)
+        # Standardize
+        cov_scaled <- scale(train_grid$covariates, center = T, scale = T)
+        
+        train_grid$covariates <- as.data.frame(cov_scaled)
+        
+        cvs_res <- mclapply(lambdagrid, 
+                            function(lambda_val) {
+                                fit_cbmodel(train_grid, regularization = regularization,
+                                            lambda = lambda_val, alpha = alpha, unpen_cov = constant_covariates,
+                                            fit_fun = fit_fun)
+                            }, mc.cores = ncores, mc.set.seed = seed)
+        
+        cov_coeffs <- map(1:length(lambdagrid),
+                          \(x){cvs_res[[x]]$coefficients[1:eval(parse(text="p")), ]/attr(cov_scaled,"scaled:scale")[-(p+1)]})
+        
+        names(cov_coeffs) <- lambdagrid
+        
+    return(list(lambdagrid = lambdagrid,
+                cov_coeffs = cov_coeffs))
+}
+
+#' ###########################################################
+#' Plotting function for cross-validation 
+plot_cv.multinom <- function(cv_object) {
+    nfold <- ncol(cv_object$deviance_grid)
+    mean_dev <- rowMeans(cv_object$deviance_grid)
+    row_stdev <- apply(cv_object$deviance_grid, 1, function(x) {sd(x)/sqrt(nfold)})
+    plot.dat <- data.frame(lambdagrid = cv_object$lambdagrid, mean.dev = mean_dev, 
+                           upper = mean_dev +row_stdev, lower = mean_dev - row_stdev)
+    p <- ggplot(plot.dat, aes(log(lambdagrid), mean.dev)) + geom_point(colour = "red", size = 3) + theme_bw() + 
+        geom_errorbar(aes(ymin= lower, ymax=upper), width=.2, position=position_dodge(0.05), colour = "grey") + 
+        labs(x = "log(lambda)", y = "Multinomial Deviance")  + 
+        geom_vline(xintercept = log(cv_object$lambda.min), linetype = "dotted", colour = "blue") + 
+        geom_vline(xintercept = log(cv_object$lambda.1se), linetype = "dotted", 
+                   colour = "purple")
+    return(p)
+}
+
+
+mtool.multinom.cv <- function(train, regularization = c('elastic-net', 'SCAD'),
+                              lambda_max = NULL, alpha = NULL, nfold = 10, 
+                              constant_covariates = 2, initial_max_grid = NULL, 
+                              precision = 0.001, epsilon = .005, grid_size = 100,
+                              plot = FALSE, 
+                              ncores = parallelly::availableCores()/2, 
+                              seed = NULL, train_ratio = 20,
+                              fit_fun = mtool::mtool.MNlogistic) {
+    
+    regularization <- rlang::arg_match(regularization)
+    
+    surv_obj_train <- with(train, Surv(ftime, as.numeric(fstatus), type = "mstate"))
+    cov_train <- as.matrix(cbind(train[, c(grepl("X", colnames(train)))], time = log(train$ftime)))
+    # Create case-base dataset
+    cb_data_train <- create_cbDataset(surv_obj_train, cov_train, ratio =  train_ratio)
+    # Default lambda grid
+    if(is.null(lambda_max)) {
+        # Lambda max grid for bisection search 
+        if(is.null(initial_max_grid)) {
+            initial_max_grid <-  c(1.5, 0.9, 0.75, 0.5, 0.25, 0.1, 0.08, 0.07, 0.05, 0.01, 0.005)
+            
+            fit_val_max <- mclapply(initial_max_grid, 
+                                    function(lambda_val) {
+                                        fit_cbmodel(cb_data_train, regularization = regularization,
+                                                    lambda = lambda_val, alpha = alpha, unpen_cov = constant_covariates,
+                                                    fit_fun = fit_fun)}, mc.cores = ncores)
+            non_zero_coefs <-  unlist(lapply(fit_val_max, function(x) {return(x$no_non_zero)}))
+            if(!isTRUE(any(non_zero_coefs == (constant_covariates*2)))){
+                warning("Non-zero coef value not found in default grid. Re-run function and specify initial grid")
+            }
+            
+            
+            upper <- initial_max_grid[which(non_zero_coefs > (constant_covariates*2 + 1))[1]-2]
+            if(length(upper) != 1) upper <- initial_max_grid[1]
+            
+            lower <- initial_max_grid[which(non_zero_coefs > (constant_covariates*2 + 1))[1]]
+            
+            new_max_searchgrid <- seq(lower, upper, length.out = 10) # Change precision
+            fit_val_max <-  mclapply(new_max_searchgrid, 
+                                     function(lambda_val) {
+                                         fit_cbmodel(cb_data_train, regularization = regularization,
                                                      lambda = lambda_val, alpha = alpha,
                                                      unpen_cov = constant_covariates,
                                                      fit_fun = fit_fun)}, mc.cores = ncores, mc.set.seed = seed)
@@ -171,7 +309,7 @@ mtool.multinom.cv <- function(train, regularization = 'elastic-net', lambda_max 
         train_cv$covariates <- as.data.frame(scale(train_cv$covariates, center = T, scale = T))
         cvs_res <- mclapply(lambdagrid, 
                             function(lambda_val) {
-                                fit_cbmodel(train_cv, regularization = 'elastic-net',
+                                fit_cbmodel(train_cv, regularization = regularization,
                                             lambda = lambda_val, alpha = alpha, unpen_cov = constant_covariates,
                                             fit_fun = fit_fun)
                             }, mc.cores = ncores, mc.set.seed = seed)
@@ -188,7 +326,7 @@ mtool.multinom.cv <- function(train, regularization = 'elastic-net', lambda_max 
     }
     mean_dev <- rowMeans(all_deviances)
     lambda.min <- lambdagrid[which.min(mean_dev)]
-    sel_lambda_min <- non_zero_coefs[which.min(mult_deviance)]
+    sel_lambda_min <- non_zero_coefs[which.min(mean_dev)]
     if (sel_lambda_min  == 2*constant_covariates) {
         cat("Null model chosen: choosing first non-null model lambda")
         lambda.min <- lambdagrid[which.min(non_zero_coefs != 2*constant_covariates)-2]
@@ -204,6 +342,348 @@ mtool.multinom.cv <- function(train, regularization = 'elastic-net', lambda_max 
     lambda.min0.5se <- min(range.0.5se)
     rownames(all_deviances) <- lambdagrid
     rownames(non_zero_coefs) <- lambdagrid
+    return(list(lambda.min = lambda.min,  non_zero_coefs = non_zero_coefs, lambda.min1se = lambda.min1se, lambda.min0.5se = lambda.min0.5se, 
+                lambda.1se = lambda.1se, lambda.0.5se = lambda.0.5se, cv.se = cv_se, lambdagrid = lambdagrid, deviance_grid = all_deviances))
+}
+
+
+
+mtool.multinom.cv.ws <- function(train,
+                                 regularization = c('elastic-net', 'SCAD'), 
+                                 lambda_max = NULL, 
+                                 alpha = 1, nfold = 10, 
+                                 constant_covariates = 2, 
+                                 initial_max_grid = NULL,
+                                 precision = 0.001, epsilon = .0001, 
+                                 grid_size = 100, plot = FALSE, 
+                                 seed = NULL, train_ratio = 20,
+                                 fit_fun = mtool::mtool.MNlogistic,
+                                 ws = T) {
+    
+    regularization <- rlang::arg_match(regularization)
+    surv_obj_train <- with(train, Surv(ftime, as.numeric(fstatus), type = "mstate"))
+    cov_train <- as.matrix(cbind(train[, c(grepl("X", colnames(train)))], time = log(train$ftime)))
+    # Create case-base dataset
+    cb_data_train <- create_cbDataset(surv_obj_train, cov_train, ratio =  train_ratio)
+    # Default lambda grid
+    if(is.null(lambda_max)) {
+        # Lambda max grid for bisection search 
+        if(is.null(initial_max_grid)) {
+            initial_max_grid <-  c(0.9, 0.5, 0.1, 0.07, 0.05, 0.01, 0.009, 0.005)
+            fit_val_max <- lapply(initial_max_grid, 
+                                    function(lambda_val) {
+                                        fit_cbmodel(cb_data_train, regularization = regularization,
+                                                    lambda = lambda_val, alpha = alpha, unpen_cov = constant_covariates,
+                                                    fit_fun = fit_fun)})
+            non_zero_coefs <-  unlist(lapply(fit_val_max, function(x) {return(x$no_non_zero)}))
+            if(!isTRUE(any(non_zero_coefs == (constant_covariates*2)))){
+                warning("Non-zero coef value not found in default grid. Re-run function and specify initial grid")
+            }
+            upper <- initial_max_grid[which(non_zero_coefs > (constant_covariates*2 + 1))[1]-1]
+            lower <- initial_max_grid[which(non_zero_coefs > (constant_covariates*2 + 1))[1]]
+            new_max_searchgrid <- seq(lower, upper, precision)
+            fit_val_max <-  lapply(new_max_searchgrid, 
+                                     function(lambda_val) {
+                                         fit_cbmodel(cb_data_train, regularization = regularization,
+                                                     lambda = lambda_val, alpha = alpha,
+                                                     unpen_cov = constant_covariates,
+                                                     fit_fun = fit_fun)})
+            non_zero_coefs <-  unlist(lapply(fit_val_max, function(x) {return(x$no_non_zero)}))
+            lambda_max <- new_max_searchgrid[which.min(non_zero_coefs)]
+        }
+    }
+    lambdagrid <- round(exp(seq(log(lambda_max), log(lambda_max*epsilon), length.out = grid_size)), digits = 10)
+    cb_data_train <- as.data.frame(cb_data_train)
+    cb_data_train <- cb_data_train %>%
+        select(-time)
+    # Create folds 
+    folds <- caret::createFolds(factor(cb_data_train$event_ind), k = nfold, list = FALSE)
+    lambda.min <- rep(NA_real_, nfold)
+    all_deviances <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
+    non_zero_coefs <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
+    #Perform 10 fold cross validation
+    iter <- 0
+    # models <- vector("list", length(lambdagrid)*nfold)
+    for(i in 1:nfold){
+        #Segment your data by fold using the which() function 
+        train_cv <- cb_data_train[which(folds != i), ] #Set the training set
+        test_cv <- cb_data_train[which(folds == i), ] #Set the validation set
+        # Create X and Y
+        train_cv <- list("time" = train_cv$time,
+                         "event_ind" = train_cv$event_ind,
+                         "covariates" = train_cv[, grepl("covariates", names(train_cv))],
+                         "offset" = train_cv$offset)
+        # Standardize
+        cov_scaled <- scale(train_cv$covariates, center = T, scale = T)
+        
+        train_cv$covariates <- as.data.frame(cov_scaled)
+        
+        test_cv <- list("time" = test_cv$covariates.time,
+                        "event_ind" = test_cv$event_ind,
+                        "covariates" = as.matrix(test_cv[, grepl("covariates", names(test_cv))]),
+                        "offset" = test_cv$offset)
+        
+        # Standardize
+        test_cv$covariates <- as.data.frame(scale(test_cv$covariates, 
+                                                  center = attr(cov_scaled,"scaled:center"), 
+                                                  scale = attr(cov_scaled,"scaled:scale")))
+        
+        # cvs_res <- mclapply(lambdagrid, 
+        #                     function(lambda_val) {
+        #                         fit_cbmodel(train_cv, regularization = 'elastic-net',
+        #                                     lambda = lambda_val, alpha = alpha, unpen_cov = constant_covariates,
+        #                                     fit_fun = fit_fun)
+        #                     }, mc.cores = ncores, mc.set.seed = seed)
+        # test_cv <- list("time" = test_cv$covariates.time,
+        #                 "event_ind" = test_cv$event_ind,
+        #                 "covariates" = as.matrix(test_cv[, grepl("covariates", names(test_cv))]),
+        #                 "offset" = test_cv$offset)
+        
+        path_warm_start_params <- NULL
+        
+        # A list to store results for each lambda in this fold
+        # cvs_res <- vector("list", length(lambdagrid))
+        
+        fit_fun_loop <- fit_fun
+        
+        # Loop sequentially through the sorted lambdas
+        for (j in 1:length(lambdagrid)) {
+            lambda_val <- lambdagrid[j]
+            
+            # cli::cli_alert_info("Fitting model w/ lambda {lambda_val}")
+            
+            
+            current_fit <- fit_cbmodel(
+                cb_data = train_cv,
+                regularization = regularization,
+                lambda = lambda_val,
+                alpha = alpha,
+                unpen_cov = constant_covariates,
+                fit_fun = fit_fun_loop,
+                param_start = path_warm_start_params 
+            )
+            
+            # Store the result
+            all_deviances[j, i] <- multi_deviance(cb_data = test_cv, 
+                                                  current_fit)
+            
+            non_zero_coefs[j, i] <- current_fit$no_non_zero
+            
+            path_warm_start_params <- NULL
+            
+            # Update the warm start
+            if (ws) {
+                path_warm_start_params <- current_fit$coefficients
+                fit_fun_loop <- function(..., learning_rate = 1e-4,
+                                         niter_inner_mtplyr = 2,
+                                         maxit = 100,
+                                         tolerance = 1e-4) {
+                    j <- j
+                    args <- list(...,
+                                 maxit = maxit,
+                                 niter_inner_mtplyr = niter_inner_mtplyr,
+                                 learning_rate = learning_rate/(j^(5/3)),
+                                 tolerance = tolerance/(j^(4/3)))
+                    do.call(fit_fun, args)
+                }
+            }
+        }
+        
+        
+        cli::cli_alert_info("Completed Fold {i}")
+    }
+    mean_dev <- rowMeans(all_deviances)
+    lambda.min <- lambdagrid[which.min(mean_dev)]
+    sel_lambda_min <- non_zero_coefs[which.min(mean_dev)]
+    if (sel_lambda_min  == 2*constant_covariates) {
+        cli::cli_alert_warning("Null model chosen: choosing first non-null model lambda")
+        mean_non0 <- round(rowMeans(non_zero_coefs), 0)
+        lambda.min <- lambdagrid[mean_non0 != 2*constant_covariates][which.min(mean_dev[mean_non0 != 2*constant_covariates])]
+    }
+    cv_se <- sqrt(var(mean_dev))
+    dev.1se <- mean_dev[which.min(mean_dev)] + cv_se
+    dev.0.5se <- mean_dev[which.min(mean_dev)] + cv_se/2
+    range.1se <- lambdagrid[which(mean_dev <= dev.1se)]
+    lambda.1se <- max(range.1se)
+    lambda.min1se <- min(range.1se)
+    range.0.5se <- lambdagrid[which((mean_dev <= dev.0.5se))]
+    lambda.0.5se <- max(range.0.5se)
+    lambda.min0.5se <- min(range.0.5se)
+    rownames(all_deviances) <- lambdagrid
+    rownames(non_zero_coefs) <- lambdagrid
+    return(list(lambda.min = lambda.min,  non_zero_coefs = non_zero_coefs, lambda.min1se = lambda.min1se, lambda.min0.5se = lambda.min0.5se, 
+                lambda.1se = lambda.1se, lambda.0.5se = lambda.0.5se, cv.se = cv_se, lambdagrid = lambdagrid, deviance_grid = all_deviances
+                # models = models
+                ))
+}
+
+
+mtool.multinom.cv.ws2 <- function(train, regularization = 'elastic-net', lambda_max = NULL, alpha = 1, nfold = 10, 
+                              constant_covariates = 2, initial_max_grid = NULL, 
+                              precision = 0.001, epsilon = .005, grid_size = 100,
+                              plot = FALSE, 
+                              # ncores = parallelly::availableCores(), 
+                              seed = NULL, train_ratio = 20,
+                              fit_fun = mtool::mtool.MNlogistic,
+                              ws = T) {
+    surv_obj_train <- with(train, Surv(ftime, as.numeric(fstatus), type = "mstate"))
+    
+    cov_train <- as.matrix(cbind(train[, c(grepl("X", colnames(train)))], time = log(train$ftime)))
+    # Create case-base dataset
+    cb_data_train <- create_cbDataset(surv_obj_train, cov_train, ratio =  train_ratio)
+    # Default lambda grid
+    if(is.null(lambda_max)) {
+        # Lambda max grid for bisection search 
+        if(is.null(initial_max_grid)) {
+            initial_max_grid <-  c(0.9, 0.75, 0.5, 0.25, 0.1, 0.08, 0.07, 0.05, 0.01, 0.005)
+            fit_val_max <- lapply(initial_max_grid, 
+                                    function(lambda_val) {
+                                        fit_cbmodel(cb_data_train, regularization = 'elastic-net',
+                                                    lambda = lambda_val, alpha = alpha, unpen_cov = constant_covariates,
+                                                    fit_fun = fit_fun)}
+                                  #, mc.cores = ncores
+                                  )
+            non_zero_coefs <-  unlist(lapply(fit_val_max, function(x) {return(x$no_non_zero)}))
+            if(!isTRUE(any(non_zero_coefs == (constant_covariates*2)))){
+                warning("Non-zero coef value not found in default grid. Re-run function and specify initial grid")
+            }
+            
+            
+            upper <- initial_max_grid[which(non_zero_coefs > (constant_covariates*2 + 1))[1]-1]
+            if(length(upper) != 1) upper <- initial_max_grid[1]
+            lower <- initial_max_grid[which(non_zero_coefs > (constant_covariates*2 + 1))[1]]
+            
+            new_max_searchgrid <- seq(lower, upper, length.out = 10) # Change precision
+            fit_val_max <-  lapply(new_max_searchgrid, 
+                                     function(lambda_val) {
+                                         fit_cbmodel(cb_data_train, regularization = 'elastic-net',
+                                                     lambda = lambda_val, alpha = alpha,
+                                                     unpen_cov = constant_covariates,
+                                                     fit_fun = fit_fun)}#, 
+                                   # mc.cores = ncores,
+                                   # mc.set.seed = seed
+                                   )
+            non_zero_coefs <-  unlist(lapply(fit_val_max, function(x) {return(x$no_non_zero)}#, mc.cores = ncores, mc.set.seed = seed
+                                               ))
+            lambda_max <- new_max_searchgrid[which.min(non_zero_coefs)]
+        }
+    }
+    lambdagrid <- round(exp(seq(log(lambda_max), log(lambda_max*epsilon), length.out = grid_size)), digits = 10)
+    cb_data_train <- as.data.frame(cb_data_train)
+    cb_data_train <- cb_data_train %>%
+        select(-time)
+    # Create folds 
+    folds <- caret::createFolds(factor(cb_data_train$event_ind), k = nfold, list = FALSE)
+    lambda.min <- rep(NA_real_, nfold)
+    all_deviances <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
+    non_zero_coefs <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
+    #Perform 10 fold cross validation
+    for(i in 1:nfold){
+        #Segment your data by fold using the which() function 
+        train_cv <- cb_data_train[which(folds != i), ] #Set the training set
+        test_cv <- cb_data_train[which(folds == i), ] #Set the validation set
+        # Create X and Y
+        train_cv <- list("time" = train_cv$time,
+                         "event_ind" = train_cv$event_ind,
+                         "covariates" = train_cv[, grepl("covariates", names(train_cv))],
+                         "offset" = train_cv$offset)
+        # Standardize
+        cov_scaled <- scale(train_cv$covariates, center = T, scale = T)
+        
+        train_cv$covariates <- as.data.frame(cov_scaled)
+        
+        # cvs_res <- mclapply(lambdagrid, 
+        #                     function(lambda_val) {
+        #                         fit_cbmodel(train_cv, regularization = 'elastic-net',
+        #                                     lambda = lambda_val, alpha = alpha, unpen_cov = constant_covariates,
+        #                                     fit_fun = fit_fun)
+        #                     }, mc.cores = ncores, mc.set.seed = seed)
+        # test_cv <- list("time" = test_cv$covariates.time,
+        #                 "event_ind" = test_cv$event_ind,
+        #                 "covariates" = as.matrix(test_cv[, grepl("covariates", names(test_cv))]),
+        #                 "offset" = test_cv$offset)
+        
+        path_warm_start_params <- NULL
+        
+        # A list to store results for each lambda in this fold
+        cvs_res <- vector("list", length(lambdagrid))
+        
+        fit_fun_loop <- fit_fun
+        
+        # Loop sequentially through the sorted lambdas
+        for (j in 1:length(lambdagrid)) {
+            lambda_val <- lambdagrid[j]
+            
+            cli::cli_alert_info("Fitting model w/ lambda {lambda_val}")
+            
+            
+            current_fit <- fit_cbmodel(
+                cb_data = train_cv,
+                regularization = 'elastic-net',
+                lambda = lambda_val,
+                alpha = alpha,
+                unpen_cov = constant_covariates,
+                fit_fun = fit_fun_loop,
+                param_start = path_warm_start_params 
+            )
+            
+            # Store the result
+            cvs_res[j] <- list(current_fit)
+            
+            path_warm_start_params <- NULL
+            
+            # Update the warm start
+            if (ws & j %% 5 == 0) {
+                path_warm_start_params <- current_fit$coefficients
+                # fit_fun_loop <- function(..., learning_rate = 1e-4,
+                #                          niter_inner_mtplyr = 1.5,
+                #                          maxit = 100,
+                #                          tolerance = 1e-4) {
+                #     args <- list(...,
+                #                  maxit = maxit,
+                #                  niter_inner_mtplyr = niter_inner_mtplyr,
+                #                  learning_rate = learning_rate,
+                #                  tolerance = tolerance)
+                #     do.call(fit_fun, args)
+                }
+            }
+        
+        test_cv <- list("time" = test_cv$covariates.time,
+                        "event_ind" = test_cv$event_ind,
+                        "covariates" = as.matrix(test_cv[, grepl("covariates", names(test_cv))]),
+                        "offset" = test_cv$offset)
+        
+        # Standardize
+        test_cv$covariates <- as.data.frame(scale(test_cv$covariates, 
+                                                  center = attr(cov_scaled,"scaled:center"), 
+                                                  scale = attr(cov_scaled,"scaled:scale")))
+        
+        mult_deviance <- unlist(lapply(cvs_res, multi_deviance, cb_data = test_cv))
+        all_deviances[, i] <- mult_deviance
+        non_zero_coefs[, i] <-  unlist(lapply(cvs_res, function(x) {return(x$no_non_zero)}))
+        cat("Completed Fold", i, "\n")
+    }
+    
+    mean_dev <- rowMeans(all_deviances)
+    lambda.min <- lambdagrid[which.min(mean_dev)]
+    sel_lambda_min <- non_zero_coefs[which.min(mult_deviance)]
+    if (sel_lambda_min  == 2*constant_covariates) {
+        cat("Null model chosen: choosing first non-null model lambda")
+        mean_non0 <- rowMeans(non_zero_coefs)
+        mean_non0 <- lambdagrid[which.min(mean_dev[mean_non0 != 2*constant_covariates])]
+    }
+    cv_se <- sqrt(var(mean_dev))
+    dev.1se <- mean_dev[which.min(mean_dev)] + cv_se
+    dev.0.5se <- mean_dev[which.min(mean_dev)] + cv_se/2
+    range.1se <- lambdagrid[which(mean_dev <= dev.1se)]
+    lambda.1se <- max(range.1se)
+    lambda.min1se <- min(range.1se)
+    range.0.5se <- lambdagrid[which((mean_dev <= dev.0.5se))]
+    lambda.0.5se <- max(range.0.5se)
+    lambda.min0.5se <- min(range.0.5se)
+    rownames(all_deviances) <- lambdagrid
+    rownames(non_zero_coefs) <- lambdagrid
+    
     return(list(lambda.min = lambda.min,  non_zero_coefs = non_zero_coefs, lambda.min1se = lambda.min1se, lambda.min0.5se = lambda.min0.5se, 
                 lambda.1se = lambda.1se, lambda.0.5se = lambda.0.5se, cv.se = cv_se, lambdagrid = lambdagrid, deviance_grid = all_deviances))
 }
@@ -227,21 +707,49 @@ plot_cv.multinom <- function(cv_object) {
 
 
 ################### Function to calculate specificity, sensitivity and MCC ###############
-varsel_perc <- function(model_coef, true_coef) {
-    zero_ind1 <- which(true_coef == 0)
-    nonzero_ind1 <- which(true_coef != 0)
-    TP <- length(intersect(which(model_coef != 0), nonzero_ind1))
-    TN <- length(intersect(which(model_coef == 0), zero_ind1))
-    FP <- length(intersect(which(model_coef != 0), zero_ind1))
-    FN <- length(intersect(which(model_coef == 0), nonzero_ind1))
-    sens <- TP/(TP+FN)
-    spec <- TN/(TN+FP)
-    mcc_num <- (TP*TN)-(FP*FN)
-    # To avoid numerical overflow issues 
-    mcc_den1 <- as.numeric((TP+FP)*(TP+FN))
-    mcc_den2 <- as.numeric((TN+FP)*(TN+FN))
-    mcc <- mcc_num/sqrt(mcc_den1*mcc_den2)
-    dat <- as.data.frame(cbind(TP = TP, TN = TN, FP = FP, FN = FN, Sensitivity = sens, Specificity = spec, MCC = mcc))
+varsel_perc <- function(model_coef, true_coef,  threshold = 1e-6) {
+    
+    selected_vars <- which(abs(model_coef) > threshold)
+    
+    non_selected_vars <- which(abs(model_coef) <= threshold)
+    
+    true_vars <- which(abs(true_coef) > threshold)
+    
+    false_vars <- which(abs(true_coef) <= threshold)
+    
+    
+    TP <- sum(selected_vars %in% true_vars)
+    FP <- sum(selected_vars %in% false_vars)
+    TN <- sum(non_selected_vars %in% false_vars)
+    FN <- sum(non_selected_vars %in% true_vars)
+    
+    sens <- TP / (TP + FN)
+    spec <- TN / (TN + FP)
+    
+    sum_tp_fp <- TP + FP # Total predicted positive
+    sum_tp_fn <- TP + FN # Total actual positive
+    sum_tn_fp <- TN + FP # Total actual negative
+    sum_tn_fn <- TN + FN # Total predicted negative
+    
+    mcc_num <- TP * TN - FP * FN
+    mcc_den <- sqrt(sum_tp_fp) * sqrt(sum_tp_fn) * sqrt(sum_tn_fp) * sqrt(sum_tn_fn)
+    
+    mcc <- if (mcc_den == 0) {
+        0
+    } else {
+        mcc_num / mcc_den
+    }
+    
+    dat <- data.frame(
+        TP = TP,
+        TN = TN,
+        FP = FP,
+        FN = FN,
+        Sensitivity = sens,
+        Specificity = spec,
+        MCC = mcc
+    )
+    
     return(dat)
 }
 
@@ -956,8 +1464,8 @@ mse_bias <- function(coef, true_coefs) {
 # Look into ... argument to pass parameters from other functions because you want to pass cross-validation parameters
 multinom.post_enet <- function(fit_object, cause = 1) {
     # Obtain all non-zero selected covariates from cause 1 
-    coef <- fit_val_min$coefficients[1:eval(parse(text="p")), 1]
-    non_zero_coefs_cause1 <- which(fit_val_min$coefficients[1:eval(parse(text="p")), 1] != 0)
+    coef <- fit_object$coefficients[1:eval(parse(text="p")), 1]
+    non_zero_coefs_cause1 <- which(fit_object$coefficients[1:eval(parse(text="p")), 1] != 0)
     non_zero_coefs <- paste("X", non_zero_coefs_cause1, sep = "")
     # Create new subsetted dataset 
     testnew <- cbind(test[, c(colnames(test) %in% non_zero_coefs)], ftime = (test$ftime), fstatus = test$fstatus)
@@ -1134,4 +1642,108 @@ mtool.multinom.cv_cluster <- function(train, regularization = 'elastic-net', lam
     rownames(non_zero_coefs) <- lambdagrid
     return(list(lambda.min = lambda.min,  non_zero_coefs = non_zero_coefs, lambda.min1se = lambda.min1se, lambda.min0.5se = lambda.min0.5se, 
                 lambda.1se = lambda.1se, lambda.0.5se = lambda.0.5se, cv.se = cv_se, lambdagrid = lambdagrid, deviance_grid = all_deviances))
+}
+
+
+
+
+# Generate data
+gen_data <- function(n = 400, p = 300, 
+                     num_true = 20, setting = 1,
+                     iter = runif(10, 0,9), sims = NULL){
+    i <- iter
+    set.seed(i)
+    the_seed <- as.numeric(paste0(round(sample(runif(10, 0,9), 5)), collapse = ""))
+    cli::cli_alert_info("Setting: {setting} | Iteration {i}/{sims} | seed: {the_seed} | p = {p} | k = {num_true}")
+    set.seed(the_seed)
+    
+    # Setup
+    n <- 400
+    # Let's start yours with p = 20
+    beta1 <- c(rep(0, p))
+    beta2 <- c(rep(0, p))
+    nu_ind <- seq(num_true)
+    pars_sett1 <- rep(0, 4)
+    pars_sett2 <- rep(0, 4)
+    if (setting == 1) {
+        pars_sett1 <- c(1, 1, 1, 1)
+        pars_sett2 <- c(0, 0, 0, 0)
+    }
+    if (setting == 2) {
+        pars_sett1 <- c(1, 0, 1, 0)
+        pars_sett2 <- c(0, 1, 0, 1)
+    }
+    if (setting == 5) {
+        pars_sett1 <- c(1, 1, 1, 1)
+        pars_sett2 <- c(-1, -1, -1, -1)
+    }
+    # Here out of 20 predictors, 10 should be non-zero 
+    beta1[nu_ind] <- c(rep(pars_sett1[1], num_true/4), 
+                       rep(pars_sett1[2], num_true/4), 
+                       rep(pars_sett1[3], num_true/4), 
+                       rep(pars_sett1[4], num_true/4))
+    beta2[nu_ind] <- c(rep(pars_sett2[1], num_true/4), 
+                       rep(pars_sett2[2], num_true/4), 
+                       rep(pars_sett2[3], num_true/4), 
+                       rep(pars_sett2[4], num_true/4))
+    
+    if (setting == 3) {
+        beta1[nu_ind] <- rep(c(0.5, -0.5), num_true/2)
+        beta2[nu_ind] <- rep(c(-0.5, 0.5), num_true/2)
+    }
+    if (setting == 4) {
+        
+        pars_sett1 <- c(1, 0.5, 1, 0)
+        pars_sett2 <- c(0, 0.5, 0, 1)
+        beta1[nu_ind] <- rep(c(0.5, -0.5), num_true/2)
+        beta2[nu_ind] <- rep(c(-0.5, 0.5), num_true/2)
+        beta1[nu_ind[-c((num_true/4 + 1):(num_true/2))]] <- c(rep(pars_sett1[1], num_true/4), 
+                           rep(pars_sett1[3], num_true/4), 
+                           rep(pars_sett1[4], num_true/4))
+        beta2[nu_ind[-c((num_true/4 + 1):(num_true/2))]] <- c(rep(pars_sett2[1], num_true/4), 
+                           rep(pars_sett2[3], num_true/4), 
+                           rep(pars_sett2[4], num_true/4))
+        
+    }
+    
+    
+    # Simulate data
+    exch <- ifelse(setting %in% c(1, 5), T, F)
+    sim.data <- cause_hazards_sim(n = n, p = p, 
+                                  nblocks = 4, num.true = num_true, 
+                                  beta1 = beta1, beta2 = beta2, rate_cens = 0.25, 
+                                  h1 = 0.55, h2 = 0.35, gamma1 = 1.5, gamma2 = 1.5, exchangeable = exch)
+    
+    if (setting == 4){
+        sim.data <- cause_subdist_sim(n = n, p = p, 
+                                      u.max = 1.5,
+                                      nblocks = 4, num.true = num_true, 
+                                      beta1 = beta1, beta2 = beta2)
+    }
+    
+    # Censoring proportion
+    cen.prop <- c(prop.table(table(sim.data$fstatus)), 0, 0, 0, 0)
+    
+    
+    # Let us plot and visualize the competing risks curves
+    #cif <- cuminc(ftime = sim.data$ftime, fstatus = sim.data$fstatus)
+    
+    #ggcompetingrisks(cif)
+    
+    # Training-test split 
+    # We only do this (instead of generating datasets for train and test like Anthony mentioned because it is faster computationally 
+    # as casebase resamples) + proportion of censoring can be quite random in each run of the simulation so we want to maintain the same in validation and test set
+    train.index <- caret::createDataPartition(sim.data$fstatus, p = 0.75, list = FALSE)
+    train <- sim.data[train.index,]
+    test <- sim.data[-train.index,]
+    
+    
+    return(list(#sim.data = sim.data,
+                train = train,
+                test = test,
+                beta1 = beta1,
+                beta2 = beta2,
+                call = match.call(),
+                cen.prop = cen.prop))
+    
 }

@@ -10,6 +10,8 @@ predict_CompRisk_penalized <- function(fit_object, newdata = NULL) {
 }
 
 
+
+
 ########################## Survival analysis performance metrics #############
 ### Cause-specific cumulative incidence function for penalized case-base fit
 absoluteRisk.penalized <- function(fit_object, time, newdata,

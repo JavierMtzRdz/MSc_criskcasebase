@@ -1,0 +1,642 @@
+---
+title: ""
+# author: Javier Mtz.-Rdz.
+date-format: long
+number-sections: true
+number-depth: 4
+fig-dpi: 400
+format: 
+  pdf:
+    documentclass: article
+    header-includes: |
+      \usepackage[left=0.7in,right=0.7in,
+      top=0.7in,bottom=0.5in,footskip=0.7in]{geometry} 
+      \usepackage[document]{ragged2e}
+      \usepackage{amsmath,amsthm,amssymb,amsfonts}
+      \usepackage{mathtools}
+      % Using kp fonts
+      \usepackage{kpfonts}
+      \usepackage{dsfont}
+      \usepackage{centernot}
+      \usepackage[usenames,dvipsnames,table]{xcolor}
+      \usepackage{booktabs} % For improved table lines
+      \renewcommand{\arraystretch}{1} % Increase row spacing
+      \renewcommand\thefigure{\arabic{figure}}
+    fontsize: 12pt
+    colorlinks: true
+knitr:
+  opts_chunk:
+    comment: "#>"
+    message: FALSE
+    dev: "png"
+    fig.width: 8
+    fig.height: 4.5
+    fig.align: center
+editor_options: 
+  chunk_output_type: console
+bibliography: competing-risk.bib
+---
+
+```{r preprocessing, include=FALSE}
+# Setup ----
+## Packages to use ----
+
+#' To install mytidyfunctions, you need 
+#' remotes::install_github("JavierMtzRdz/mytidyfunctions")
+if (!require("pacman")) install.packages("pacman")
+if (!require("mytidyfunctions")) remotes::install_github("JavierMtzRdz/mytidyfunctions")
+
+
+pacman::p_load(tidyverse, janitor, writexl, 
+              readxl, scales, mytidyfunctions,
+              patchwork, here, 
+              mtool, bench, kableExtra)
+
+library(casebase)
+library(future.apply)
+library(glmnet)
+library(mtool)
+library(parallel)
+library(tictoc)
+library(tidyverse)
+library(foreach)
+library(survival)
+library(cmprsk)
+library(glue)
+library(pec)
+library(survminer)
+
+## Load fonts ----
+extrafont::loadfonts(quiet = TRUE)
+
+## Set theme ------
+mytidyfunctions::set_mytheme(text = element_text(family = "Times New Roman"))
+
+
+# Set-up process
+
+save <- F
+
+```
+
+
+
+# Project summary
+
+The casebase framework offers users a convenient method for fitting parametric survival models using generalized linear models [@HanleyMiettinen:2009; @BhatnagarTurgeonIslam:2022]. In this work, an elastic-net multinomial model (enet-Casebase) is proposed for the competing risks scenario [@Tamvada:2023]. It focuses on examining the performance of the elastic-net penalized multinomial model with casebase sampling and compares it to the elastic-net penalized Cox-Proportional Hazards model. Specifically, variable selection and prediction performance were evaluated in different settings.
+
+The penalized multinomial logistic regression is fitted using stochastic variance reduced gradient descent (SVRG). SVRG shows fast convergence for high-dimensional datasets with a greater number of predictors than observations (p > n) [@JohnsonZhang:2013]. This algorithm reduces the variance of stochastic gradients by periodically computing full-batch gradients, referred to as a “snapshot.” This gradient adjusts the noisy stochastic gradients used in subsequent iterations. 
+
+As shown in the @fig-results, the initial results of the proposed method using the SVRG algorithm demonstrate competitive variable selection performance (in terms of Sensitivity, Specificity, and Matthews correlation coefficient) in low-dimensional settings compared to Elastic-net Independent Cox (enet-iCR) and Elastic-net Cox with shared penalty (enet-penCR). In particular, in single-effects settings, enet-casebase exhibits good specificity, sensitivity, and MCC. In both the low and high-dimensional cases, enet-casebase appears to struggle with the opposing effects of covariates. The details of these results can be found in [@JohnsonZhang:2013, pp. 40-45].
+
+::: {#fig-results layout="[[1], [1,1], [1,1], [-.25, 1, -.25]]"}
+![](figs/legend.png)
+
+![Single effects on endpoint of interest](figs/Single effects on endpoint of interest.png)
+
+![Single effects on both endpoints](figs/Single effects on both endpoints.png)
+
+![Opposing Effects](figs/Opposing Effects.png)
+
+![Mixture of effects](figs/Mixture of effects.png)
+
+![Non-proportional cause-specific hazards](figs/Non-proportional cause-specific hazards.png)
+
+Findings from Initial Experiments
+:::
+
+Additionally, a two-step procedure was developed to de-bias the estimates of the casebase model and enhance their efficiency. This method demonstrates an ability to accurately predict cumulative incidence comparable to the Cox-Proportional Hazards model and the Fine-Gray model. In the @fig-results2, it is evident that the de-biased casebase fit yields estimates that are smooth over time.
+
+::: {#fig-results2 layout="[[1], [1], [1]]"}
+![](figs/legend2.png)
+
+![Low-dimensional case ($n = 400$, $p= 120$)](figs/cic-low.png)
+
+![High-dimensional case ($n= 400$, $p= 1000$)](figs/cic-high.png)
+
+Cumulative incidence curves for event 1
+:::
+
+From the previous results, it can be noted that the elastic net multinomial model does not perform well on high-dimensional data. After reviewing the optimization process, it can be observed that SVRG achieves suboptimal coefficients in those settings. Therefore, we have implemented an Accelerating Variance-Reduced Stochastic Gradient algorithm to achieve better optimization in approximately the same amount of time. This accelerated algorithm combines SVRG’s variance reduction with momentum to speed up convergence (@DriggsEhrhardtSchonlieb:2022). Like SVRG, this algorithm starts with a full-batch gradient computation. However, instead of relying solely on stochastic updates, it introduces a sequence of extrapolated points, which are constructed using a weighted combination of the current and previous iterations. As a result, incorporating this algorithm enables obtaining more optimal coefficients in a similar amount of time compared to using SVRG. 
+
+## A brief example
+
+This section analyzes results from the elastic-net multinomial model for competing risks using various optimization algorithms. Data are simulated from a $K=2$ competing risks proportional hazards model. The cause-specific hazard for cause for individual $i$ with covariates $X_i = (X_{i1}, \dots, X_{ip})$ at time $t$ is $\lambda_k(t | X_i) = \lambda_{0k}(t) \exp(X_i^T \beta_k)$. The baseline hazards $\lambda_{0k}(t)$ follow a Weibull distribution $\lambda_{0k}(t) = h_k \gamma_k t^{\gamma_k - 1}$, with parameters $(h_1, \gamma_1)=(0.55, 1.5)$ and $(h_2, \gamma_2)=(0.35, 1.5)$.
+
+The coefficient vectors $\beta_1, \beta_2 \in \mathbb{R}^p$ are sparse, with non-zero effects predominantly within the first 18 predictors. For cause 1, the coefficients for $X_1, \dots, X_{18}$ are set as $(1, 1, 1, 1, 1, 1,$ $0.5, -0.5, 0.5, -0.5, 0.5, -0.5$ $1, 1, 1, 1, 1, 1)$, and 0 for $j > 18$. For cause 2 ($\beta_2$), the coefficients for $X_1, \dots, X_{24}$ are set as $(0, 0, 0, 0, 0, 0,$ $0.5, -0.5, 0.5, -0.5, 0.5,$ $-0.5, 0, 0, 0, 0, 0, 0,$ $1, 1, 1, 1, 1, 1)$, and 0 for $j > 24$.
+
+Event times $T_i$ and causes $C_i$ are generated by simulating potential failure times $T_{ik}$ from $\lambda_k(t|X_i)$ and setting $T_i = \min(T_{i1}, T_{i2})$ with $C_i$ being the index $k$ for which $T_{ik} = T_i$. Independent censoring times $T_{cens, i}$ are generated based on an overall rate of 0.05. Observed data consist of $(ftime_i, fstatus_i)$, where $ftime_i = \min(T_i, T_{cens, i})$ and the status $fstatus_i = C_i \cdot \mathds{1}(T_i \le T_{cens, i})$ (with $fstatus_i=0$ indicating censoring).
+
+```{r}
+#| echo: false
+# Fitting functions 
+source(here::here("src/fitting_functionsV2.R"))
+
+run_simulation <- function(seed) {
+    # Set seed
+    cli::cli_alert_info("Start simulation w/ seed {seed}")
+    
+    # seed <- as.integer(Sys.time())
+    # take the last five digits of the initial seed
+    # the_seed = seed %% 100000
+    
+    set.seed(seed)
+    the_seed <- as.numeric(paste0(round(runif(5, 0,9)), collapse = ""))
+    set.seed(the_seed)
+    
+    
+    # Setup
+    n <- 400
+    p <- 1000
+    num_true <- 24
+    beta1 <- c(rep(0, p))
+    beta2 <- c(rep(0, p))
+    nu_ind <- seq(num_true)
+    nu_ind <- seq(num_true)
+    beta1[nu_ind] <- c(rep(1, 6), 0.5, -0.5, 0.5, -0.5, 0.5, -0.5,
+                       rep(1, 6), rep(0, 6))
+    beta2[nu_ind] <- c(rep(0, 6), 0.5, -0.5, 0.5, -0.5, 0.5, -0.5, 
+                       rep(0, 6), rep(1, 6))
+    
+    
+    # Simulate data
+    sim.data <- cause_hazards_sim(n = n, p = p, nblocks = 4, num.true = 24, 
+                                  beta1 = beta1, beta2 = beta2, rate_cens = 0.05, 
+                                  h1 = 0.55, h2 = 0.35, gamma1 = 1.5, gamma2 = 1.5)
+    
+    
+    # Censoring proportion
+    cen.prop <- c(prop.table(table(sim.data$fstatus)), 0, 0, 0, 0, 0)
+    
+    # Training-test split 
+    train.index <- caret::createDataPartition(sim.data$fstatus,
+                                              p = 0.75, list = FALSE)
+    train <- sim.data[train.index,]
+    test <- sim.data[-train.index,]
+    
+    ######################## Fit cox-regression model ##############
+    ######################### Cause-1 ##############################
+    # Censor competing event
+    y_train1 <- Surv(time = train$ftime, event = train$fstatus == 1)
+    
+    x_train1 <- model.matrix(~ . -ftime -fstatus, data = train)[, -1] 
+    
+    # Censor competing event
+    y_test1 <- Surv(time = test$ftime, event = test$fstatus == 1)
+    
+    x_test1 <- model.matrix(~ . -ftime -fstatus, data = test)[, -1] 
+    
+    tictoc::tic()
+    # Fit cause-specific cox model with glmnet on training set 
+    cox_mod1 <- cv.glmnet(x = x_train1, y = y_train1,
+                          family = "cox", alpha = 0.7)
+    
+    # Fit on validation set 
+    cox_val_min1 <- glmnet(x = x_test1, y = y_test1,
+                           family = "cox", alpha = 0.7, 
+                           lambda = cox_mod1$lambda.min)
+    time_cox1 <- tictoc::toc()
+    time_cox1 <- as.numeric(time_cox1$toc - time_cox1$tic)
+    
+    cli::cli_alert_success("Fit cox-regression model cause 1 finished")
+    
+    cc_min1 <- coef(cox_val_min1)
+    
+    res_cox_min1 <- varsel_perc(cc_min1, beta1) %>%
+        bind_cols(tibble(Time = time_cox1))
+    
+    # True coefs
+    cc_true <- cc_min1[1:24]
+    ########################## Cause 2 #####################################
+    tictoc::tic()
+    # Censor competing event
+    y_train2 <- Surv(time = train$ftime, event = train$fstatus == 2)
+    
+    x_train2 <- model.matrix(~ . -ftime -fstatus, data = train)[, -1] 
+    
+    # Censor competing event
+    y_test2 <- Surv(time = test$ftime, event = test$fstatus == 2)
+    
+    x_test2 <- model.matrix(~ . -ftime -fstatus, data = test)[, -1] 
+    
+    # Fit cause-specific cox model with glmnet on training set 
+    cox_mod2 <- cv.glmnet(x = x_train2, y = y_train2, 
+                          family = "cox", alpha = 0.7)
+    
+    # Fit on validation set 
+    cox_val_min2 <- glmnet(x = x_test2, y = y_test2,
+                           family = "cox", alpha = 0.7, 
+                           lambda = cox_mod2$lambda.min)
+    
+    time_cox2 <- tictoc::toc()
+    time_cox2 <- as.numeric(time_cox2$toc - time_cox2$tic)
+    
+    cli::cli_alert_success("Fit cox-regression model cause 2 finished")
+    cc_min2 <- coef(cox_val_min2)
+    
+    # MSE
+    
+    res_cox_min2 <- varsel_perc(cc_min2, beta2) %>% 
+        bind_cols(tibble(Time = time_cox2))
+    
+    mse_cox <- mean((cc_min1[1:24] - beta1[1:24])^2) + 
+        mean((cc_min2[1:24] - beta2[1:24])^2)
+    
+    cli::cli_ul("MSE Cox {mse_cox}")
+    ########################## Fit casebase model #####################
+    tictoc::tic()
+    # Train case-base model 
+    cv.lambda <- mtool.multinom.cv(train, seed = 1, alpha = 0.7,
+                                   nfold = 5, train_ratio = 20)
+    
+    # Test set 
+    surv_obj_val <- with(test, Surv(ftime, as.numeric(fstatus),
+                                    type = "mstate"))
+    
+    # Covariance matrix
+    cov_val <- cbind(test[, c(grepl("X", colnames(test)))],
+                     time = log(test$ftime))
+    
+    # Case-base dataset
+    cb_data_val <- create_cbDataset(surv_obj_val, 
+                                    as.matrix(cov_val), ratio = 10)
+    
+    time_casebase_cv <- tictoc::toc()
+    time_casebase_cv <- as.numeric(time_casebase_cv$toc - time_casebase_cv$tic)
+    
+    # Case-base fits 
+    # Lambda.min
+    tictoc::tic()
+    fit_val_min <- fit_cbmodel(cb_data_val, regularization = 'elastic-net',
+                               lambda = cv.lambda$lambda.min,
+                               alpha = 0.7, unpen_cov = 2)
+    
+    time_casebase_min <- tictoc::toc()
+    time_casebase_min <- as.numeric(time_casebase_min$toc - 
+                                        time_casebase_min$tic)
+    
+    
+    tictoc::tic()
+    fit_val_1se <- fit_cbmodel(cb_data_val, regularization = 'elastic-net',
+                               lambda = cv.lambda$lambda.1se,
+                               alpha = 0.7, unpen_cov = 2)
+    
+    time_casebase_1se <- tictoc::toc()
+    time_casebase_1se <- as.numeric(time_casebase_1se$toc - 
+                                        time_casebase_1se$tic)
+    
+    
+    cli::cli_alert_success("Fit Case-base model org finished")
+    
+    
+    coef_val1 <- fit_val_min$coefficients[1:eval(parse(text="p")), 1]
+    coef_val2 <- fit_val_min$coefficients[1:eval(parse(text="p")), 2]
+    
+    coef_val3 <- fit_val_1se$coefficients[1:eval(parse(text="p")), 1]
+    coef_val4 <- fit_val_1se$coefficients[1:eval(parse(text="p")), 2]
+    
+    # True coefs
+    cb_true_min <- coef_val1[1:24]
+    cb_true_1se <- coef_val3[1:24]
+    
+    
+    res_cb_min1 <- varsel_perc(coef_val1, beta1) %>% 
+        bind_cols(tibble(Time = time_casebase_cv + time_casebase_min))
+    
+    res_cb_min2 <- varsel_perc(coef_val2, beta2) %>% 
+        bind_cols(tibble(Time = time_casebase_cv + time_casebase_min))
+    
+    res_cb_min3 <- varsel_perc(coef_val3, beta1) %>% 
+        bind_cols(tibble(Time = time_casebase_cv + time_casebase_1se))
+    
+    res_cb_min4 <- varsel_perc(coef_val4, beta2) %>% 
+        bind_cols(tibble(Time = time_casebase_cv + time_casebase_1se))
+    
+       # MSE
+    mse_cb <- mean((fit_val_min$coefficients[1:eval(parse(text="p")), 1][1:24] - 
+                        beta1[1:24])^2) +
+        mean((fit_val_min$coefficients[1:eval(parse(text="p")), 2][1:24] - 
+                  beta2[1:24])^2)
+    
+    cli::cli_ul("MSE CB {mse_cb}")
+    
+    ########################## Fit casebase > tol model #####################
+    tictoc::tic()
+    # Train case-base model 
+    
+    mtool2 <- purrr::partial(mtool::mtool.MNlogistic, 
+                             niter_inner_mtplyr = 2,
+                             tol = 1e-4,
+                             learning_rate = 1e-3)
+    
+    cv.lambda2 <- mtool.multinom.cv(train, seed = 1, alpha = 0.7, nfold = 5, 
+                                    train_ratio = 20,
+                                    fit_fun = mtool2)
+    
+    
+    time_casebase2_cv <- tictoc::toc()
+    time_casebase2_cv <- as.numeric(time_casebase2_cv$toc - 
+                                        time_casebase2_cv$tic)
+    # Case-base fits 
+    # Lambda.min
+    tictoc::tic()
+    fit2_val_min <- fit_cbmodel(cb_data_val, regularization = 'elastic-net',
+                               lambda = cv.lambda2$lambda.min,
+                               alpha = 0.7, unpen_cov = 2,
+                               fit_fun = mtool2)
+    
+    
+    
+    time_casebase2_min <- tictoc::toc()
+    time_casebase2_min <- as.numeric(time_casebase2_min$toc - 
+                                         time_casebase2_min$tic)
+    
+    tictoc::tic()
+    fit2_val_1se <- fit_cbmodel(cb_data_val, regularization = 'elastic-net',
+                               lambda = cv.lambda2$lambda.1se , alpha = 0.7, 
+                               unpen_cov = 2,
+                               fit_fun = mtool2)
+    time_casebase2_1se <- tictoc::toc()
+    time_casebase2_1se <- as.numeric(time_casebase2_1se$toc - 
+                                         time_casebase2_1se$tic)
+    
+    
+    cli::cli_alert_success("Fit Case-base model tunned finished")
+    
+    coef2_val1 <- fit2_val_min$coefficients[1:eval(parse(text="p")), 1]
+    coef2_val2 <- fit2_val_min$coefficients[1:eval(parse(text="p")), 2]
+    
+    coef2_val3 <- fit2_val_1se$coefficients[1:eval(parse(text="p")), 1]
+    coef2_val4 <- fit2_val_1se$coefficients[1:eval(parse(text="p")), 2]
+    
+    # True coefs
+    cb2_true_min <- coef2_val1[1:24]
+    cb2_true_1se <- coef2_val3[1:24]
+    
+    
+    res_cb2_min1 <- varsel_perc(coef2_val1, beta1) %>% 
+        bind_cols(tibble(Time = time_casebase2_cv + time_casebase2_min))
+    
+    res_cb2_min2 <- varsel_perc(coef2_val2, beta2) %>% 
+        bind_cols(tibble(Time = time_casebase2_cv + time_casebase2_min))
+    
+    res_cb2_min3 <- varsel_perc(coef2_val3, beta1) %>% 
+        bind_cols(tibble(Time = time_casebase2_cv + time_casebase2_1se))
+    
+    res_cb2_min4 <- varsel_perc(coef2_val4, beta2) %>% 
+        bind_cols(tibble(Time = time_casebase2_cv + time_casebase2_1se))
+    
+    
+    # MSE
+    mse_cb2 <- mean((fit2_val_min$coefficients[1:eval(parse(text="p")), 1][1:24] - 
+                         beta1[1:24])^2) +
+        mean((fit2_val_min$coefficients[1:eval(parse(text="p")), 2][1:24] - 
+                  beta2[1:24])^2)
+    
+    cli::cli_ul("MSE Adj. {mse_cb2}")
+    
+    ########################## Fit casebase > tol model ######################
+    tictoc::tic()
+    # Train case-base model
+    
+    mtool3 <- purrr::partial(mtool::mtool.MNlogisticAcc,
+                             niter_inner_mtplyr = 1,
+                             maxit = 100,
+                             momentum_gamma = .96,
+                             tolerance = 1e-2)
+    
+    cv.lambda3 <- mtool.multinom.cv(train, seed = 1, alpha = 0.7, nfold = 5, 
+                                    train_ratio = 20,
+                                    fit_fun = mtool3)
+    
+    
+    time_casebase3_cv <- tictoc::toc()
+    time_casebase3_cv <- as.numeric(time_casebase3_cv$toc - time_casebase3_cv$tic)
+    # Case-base fits 
+    # Lambda.min
+
+    tictoc::tic()
+    fit3_val_min <- fit_cbmodel(cb_data_val, regularization = 'elastic-net',
+                                lambda = cv.lambda3$lambda.min , alpha = 0.7, 
+                                unpen_cov = 2,
+                                fit_fun = mtool3)
+    
+    
+    
+    time_casebase3_min <- tictoc::toc()
+    time_casebase3_min <- as.numeric(time_casebase3_min$toc - 
+                                         time_casebase3_min$tic)
+    
+    tictoc::tic()
+    fit3_val_1se <- fit_cbmodel(cb_data_val, regularization = 'elastic-net',
+                                lambda = cv.lambda3$lambda.1se , alpha = 0.7, 
+                                unpen_cov = 2,
+                                fit_fun = mtool3)
+    time_casebase3_1se <- tictoc::toc()
+    time_casebase3_1se <- as.numeric(time_casebase3_1se$toc - 
+                                         time_casebase3_1se$tic)
+    
+    
+    cli::cli_alert_success("Fit Case-base model Acc finished")
+    
+    
+    coef3_val1 <- fit3_val_min$coefficients[1:eval(parse(text="p")), 1]
+    coef3_val2 <- fit3_val_min$coefficients[1:eval(parse(text="p")), 2]
+    
+    coef3_val3 <- fit3_val_1se$coefficients[1:eval(parse(text="p")), 1]
+    coef3_val4 <- fit3_val_1se$coefficients[1:eval(parse(text="p")), 2]
+    
+    # True coefs
+    cb3_true_min <- coef3_val1[1:24]
+    cb3_true_1se <- coef3_val3[1:24]
+    
+    
+    res_cb3_min1 <- varsel_perc(coef3_val1, beta1) %>% 
+        bind_cols(tibble(Time = time_casebase3_cv + time_casebase3_min))
+    
+    res_cb3_min2 <- varsel_perc(coef3_val2, beta2) %>% 
+        bind_cols(tibble(Time = time_casebase3_cv + time_casebase3_min))
+    
+    res_cb3_min3 <- varsel_perc(coef3_val3, beta1) %>% 
+        bind_cols(tibble(Time = time_casebase3_cv + time_casebase3_1se))
+    
+    res_cb3_min4 <- varsel_perc(coef3_val4, beta2) %>% 
+        bind_cols(tibble(Time = time_casebase3_cv + time_casebase3_1se))
+    
+    
+    # MSE
+    mse_cb3 <- mean((fit3_val_min$coefficients[1:eval(parse(text="p")), 1][1:24] -
+                         beta1[1:24])^2) +
+        mean((fit3_val_min$coefficients[1:eval(parse(text="p")), 2][1:24] - 
+                  beta2[1:24])^2)
+    
+    cli::cli_ul("MSE Acc. {mse_cb3}")
+    #########################################################################
+    
+    Res <- rbind(res_cb_min1, res_cb_min2, res_cb_min3, res_cb_min4, 
+                 res_cb2_min1, res_cb2_min2, res_cb2_min3, res_cb2_min4, 
+                 res_cb3_min1, res_cb3_min2, res_cb3_min3, res_cb3_min4, 
+                 res_cox_min1, res_cox_min2,   cen.prop)
+    
+    rownames(Res) <- c("casebase.lambda.min_cause1",
+                       "casebase.lambda.min_cause2",
+                       "casebase.lambda.1se_cause1", 
+                       "casebase.lambda.1se_cause2",
+                       
+                       "casebase.Adj.lambda.min_cause1", 
+                       "casebase.Adj.lambda.min_cause2",
+                       "casebase.Adj.lambda.1se_cause1", 
+                       "casebase.Adj.lambda.1se_cause2",
+                       
+                       "casebase.Acc.lambda.min_cause1", 
+                       "casebase.Acc.lambda.min_cause2",
+                       "casebase.Acc.lambda.1se_cause1", 
+                       "casebase.Acc.lambda.1se_cause2",
+                       
+                       "cox.lambda.min_cause1", "cox.lambda.min_cause2",
+                       "cens.prop")
+    
+    
+    mse_res <- rbind(mse_cox, mse_cb, mse_cb2, mse_cb3)
+    
+    cli::cli_alert_success("Simulation w/ seed {seed} finished.")
+    
+    return(list(Res = Res, mse_res = mse_res, cc_true = cc_true, 
+                cb_true_min = cb_true_min, 
+                cb_true_1se = cb_true_1se,
+                cb2_true_min = cb2_true_min, 
+                cb2_true_1se = cb2_true_1se,
+                cb3_true_min = cb3_true_min, 
+                cb3_true_1se = cb3_true_1se, 
+                cox_mod1 = cox_mod1,
+                cox_mod2 = cox_mod2,
+                cv.lambda = cv.lambda,
+                cv.lambda2 = cv.lambda2,
+                cv.lambda3 = cv.lambda3))
+    
+}
+
+```
+
+```{r}
+#| include: false
+# Generate simulations
+seeds <- 1:15
+
+if(save){
+
+results_list <- purrr::map(seeds, run_simulation)
+
+write_rds(results_list, here::here("notes_jmr", "data", "cv-sim2.rds"))
+}
+```
+
+```{r}
+#| include: false
+
+results_list <- readRDS(here::here("notes_jmr", "data", "cv-sim2.rds"))
+```
+
+
+```{r}
+#| echo: false
+
+Res_all <- purrr::map2_dfr(results_list, seeds, ~{
+    as.data.frame(.x$Res) %>%
+        mutate(Model = rownames(.x$Res), seed = .y)
+})
+
+mse_all <- purrr::map2_dfr(results_list, seeds, ~{
+    as.data.frame(.x$mse_res) %>%
+        rownames_to_column("Model") %>%
+        mutate(seed = .y)
+})
+rownames(Res_all) <- NULL
+
+```
+
+
+```{r}
+#| include: false
+
+Res_all <- Res_all %>% 
+    select(-Time) %>% 
+    filter(Model != "cens.prop") %>% 
+    mutate(across(TP:FN, round),
+           across(Sensitivity:MCC, ~round(., 3)))
+
+mse_all <- mse_all %>% 
+    mutate(Model = case_when(str_detect(Model, "cox") ~ "Cox",
+                             str_detect(Model, "cb3") ~ "Casebase + Acc. SVRG",
+                             str_detect(Model, "cb2") ~ "Casebase + smaller tolerance",
+                             str_detect(Model, "cb") ~ "Casebase")) %>% 
+    rename(MSE = V1)
+```
+
+
+Given the discussed setting, 15 simulations were generated for this example. For each simulation, the elastic-net multinomial model was estimated using the SVRG algorithm with the default tolerance, a version with smaller tolerance, and the Accelerated SVRG algorithm. The penalization parameter $\lambda$ in all cases was tuned using 10-fold cross-validation. @fig-1 reports the selection performance for each case based on the $\lambda$ that minimizes the deviance. The elasticnet penalty parameter $\alpha$ is set to 0.7 to promote sparsity. As a result, it can be observed that the accelerated version tends to produce sparser models and achieve higher MCC scores, particularly for the cause of interest. 
+
+
+```{r}
+#| label: fig-1
+#| echo: false
+#| fig-cap: Sensitivity, Specificity and MCC Across Models
+Res_all %>% 
+    mutate(model = Model,
+           Model = case_when(str_detect(model, "cox") ~ "Cox",
+                             str_detect(model, "casebase.Adj") ~ "Casebase + smaller tolerance",
+                             str_detect(model, "casebase.Acc") ~ "Casebase + Acc. SVRG",
+                             str_detect(model, "casebase") ~ "Casebase"),
+           Lambda = case_when(str_detect(model, "min") ~ "Min",
+                             str_detect(model, "1se") ~ "1SE"),
+           Cause = case_when(str_detect(model, "cause1") ~ "1",
+                             str_detect(model, "cause2") ~ "2")) %>% 
+    # filter(!str_detect(Model, "Cox"),
+    #        Lambda == "Min") %>% 
+    # select(Model, Cause, everything(), -model, -Lambda) %>% 
+    # kbl(booktabs = T) %>%
+    # kable_styling(latex_options = "striped",
+    #               bootstrap_options = c("striped", "hover",
+    #                                     "condensed", "responsive"))
+    select(Model, Cause, Sensitivity, Specificity, MCC, seed) %>% 
+    pivot_longer(c(Sensitivity, Specificity, MCC)) %>% 
+    ggplot(aes(x = str_wrap(Model, 10), y = value, fill = Model)) +
+    geom_boxplot() +
+    facet_grid(paste0("Cause", Cause)~name) + 
+    theme(axis.text.x = element_blank()) +
+    labs(x = element_blank(),
+         y = "Value")
+    
+```
+
+
+Now, defining the Mean Squared Error (MSE) as $\frac{1}{p} \sum_{k=1}^{p} (\hat{\beta}_k - \beta_k)^2$, the @fig-2 presents the results derived from this formula across 15 simulations for each model. As observed, the estimated parameters tend to be closer to the true parameters, indicating improved accuracy.
+
+```{r}
+#| label: fig-2
+#| echo: false
+#| fig-cap: MSE Across Models
+
+mse_all %>%
+        # filter(!str_detect(Model, "Cox")) %>% 
+    # kbl(booktabs = T) %>%
+    # kable_styling(latex_options = "striped",
+    #               bootstrap_options = c("striped", "hover", 
+    #                                     "condensed", "responsive"))
+    ggplot(aes(x = str_wrap(Model, 10), y = MSE, fill = Model)) +
+    geom_boxplot() +
+    theme(axis.text.x = element_blank()) +
+    labs(x = element_blank(),
+         y = "MSE")
+```
+
+## Next Steps
+
+Since the accelerated optimization of the elasticnet multinomial model demonstrated an improvement in high-dimensional settings, the next steps focus on rerunning the experiments presented in @Tamvada:2023. Afterwards, the model will be evaluated using a real-world dataset for competing risk. 
+
+
+
+{{< pagebreak >}}
+
+# References
+

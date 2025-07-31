@@ -201,6 +201,7 @@ select_mod <- readRDS(here("paper", "results", "select_mod.rds")) %>%
 
 select_mod %>% 
     filter(p == 120, k == 20) %>% 
+<<<<<<< HEAD
     filter(sim == 10,
            setting == 1) %>% 
     ggplot(aes(x = 1 - Specificity, y = Sensitivity,
@@ -210,6 +211,8 @@ select_mod %>%
 
 select_mod %>% 
     filter(p == 1000, k == 168) %>% 
+=======
+>>>>>>> cb962c361bebc2d0cf8d8c249858a6584a0e0f3c
     filter(sim == 1,
            setting == 1) %>% 
     ggplot(aes(x = 1 - Specificity, y = Sensitivity,
@@ -239,8 +242,12 @@ select_mod %>%
     arrange(p, model_size) %>% 
     ggplot(aes(x = 1 - Specificity, y = Sensitivity,
                color = model)) +
+<<<<<<< HEAD
     geom_smooth(size = 0.5,
                 se = FALSE) +
+=======
+    geom_smooth(size = 0.5, se = FALSE) +
+>>>>>>> cb962c361bebc2d0cf8d8c249858a6584a0e0f3c
     facet_grid(paste0("Setting ", setting) ~fct_inorder(dim)) +
     coord_equal()
 

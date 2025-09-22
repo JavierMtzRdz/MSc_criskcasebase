@@ -9,8 +9,8 @@ multi_deviance <- function(cb_data, fit_object) {
     fitted_vals <- as.matrix(X %*% fit_object$coefficients)
     pred_mat <- VGAM::multilogitlink(fitted_vals, 
                                      inverse = TRUE)
-    # Turn event_ind into Y_mat
-    Y_fct <- factor(cb_data$event_ind)
+    # Turn event into Y_mat
+    Y_fct <- factor(cb_data$event)
     Y_levels <- levels(Y_fct)
     Y_mat <- matrix(NA_integer_, ncol = length(Y_levels),
                     nrow = nrow(X))
@@ -53,7 +53,7 @@ create_cbDataset <- function(surv_obj, cov_matrix, ratio = 5) {
     event_cseries <- cSeries[,"status"]
     # Combine and return
     output <- list("time" = c(time_bseries, time_cseries),
-                   "event_ind" = c(event_bseries, event_cseries),
+                   "event" = c(event_bseries, event_cseries),
                    "covariates" = rbind(cov_bseries, cov_cseries),
                    "offset" = rep(offset, nrow(bSeries) + nrow(cSeries)))
     
@@ -94,9 +94,9 @@ fit_cbmodel <- function(cb_data, regularization = c('elastic-net', 'SCAD'),
     
     opt_args <- list(
         X = as.matrix(X),
-        Y = cb_data$event_ind,
+        Y = cb_data$event,
         offset = cb_data$offset,
-        N_covariates = unpen_cov,
+        N_covariates = 2,
         regularization = regularization,
         transpose = FALSE,
         lambda1 = lambda1, lambda2 = lambda2, 
@@ -196,7 +196,7 @@ mtool.multinom <- function(train, regularization = c('elastic-net', 'SCAD'),
     train_grid <- cb_data_train
         # Create X and Y
         train_grid <- list("time" = cb_data_train$time,
-                         "event_ind" = cb_data_train$event_ind,
+                         "event" = cb_data_train$event,
                          "covariates" = cb_data_train[, grepl("covariates", names(train_grid))],
                          "offset" = cb_data_train$offset)
         # Standardize
@@ -250,7 +250,9 @@ mtool.multinom.cv <- function(train, regularization = c('elastic-net', 'SCAD'),
     regularization <- rlang::arg_match(regularization)
     
     surv_obj_train <- with(train, Surv(ftime, as.numeric(fstatus), type = "mstate"))
-    cov_train <- as.matrix(cbind(train[, c(grepl("X", colnames(train)))], time = log(train$ftime)))
+    # cov_train <- as.matrix(cbind(train[, c(grepl("X", colnames(train)))], time = log(train$ftime)))
+    cov_train <- as.matrix(train[, !(colnames(train) %in% c("fstatus", "ftime"))])
+    cov_train <- cbind(train, time = log(train$ftime))
     # Create case-base dataset
     cb_data_train <- create_cbDataset(surv_obj_train, cov_train, ratio =  train_ratio)
     # Default lambda grid
@@ -291,7 +293,7 @@ mtool.multinom.cv <- function(train, regularization = c('elastic-net', 'SCAD'),
     cb_data_train <- cb_data_train %>%
         select(-time)
     # Create folds 
-    folds <- caret::createFolds(factor(cb_data_train$event_ind), k = nfold, list = FALSE)
+    folds <- caret::createFolds(factor(cb_data_train$event), k = nfold, list = FALSE)
     lambda.min <- rep(NA_real_, nfold)
     all_deviances <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
     non_zero_coefs <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
@@ -302,7 +304,7 @@ mtool.multinom.cv <- function(train, regularization = c('elastic-net', 'SCAD'),
         test_cv <- cb_data_train[which(folds == i), ] #Set the validation set
         # Create X and Y
         train_cv <- list("time" = train_cv$time,
-                         "event_ind" = train_cv$event_ind,
+                         "event" = train_cv$event,
                          "covariates" = train_cv[, grepl("covariates", names(train_cv))],
                          "offset" = train_cv$offset)
         # Standardize
@@ -314,7 +316,7 @@ mtool.multinom.cv <- function(train, regularization = c('elastic-net', 'SCAD'),
                                             fit_fun = fit_fun)
                             }, mc.cores = ncores, mc.set.seed = seed)
         test_cv <- list("time" = test_cv$covariates.time,
-                        "event_ind" = test_cv$event_ind,
+                        "event" = test_cv$event,
                         "covariates" = as.matrix(test_cv[, grepl("covariates", names(test_cv))]),
                         "offset" = test_cv$offset)
         # Standardize
@@ -397,7 +399,7 @@ mtool.multinom.cv.ws <- function(train,
     cb_data_train <- cb_data_train %>%
         select(-time)
     # Create folds 
-    folds <- caret::createFolds(factor(cb_data_train$event_ind), k = nfold, list = FALSE)
+    folds <- caret::createFolds(factor(cb_data_train$event), k = nfold, list = FALSE)
     lambda.min <- rep(NA_real_, nfold)
     all_deviances <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
     non_zero_coefs <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
@@ -410,7 +412,7 @@ mtool.multinom.cv.ws <- function(train,
         test_cv <- cb_data_train[which(folds == i), ] #Set the validation set
         # Create X and Y
         train_cv <- list("time" = train_cv$time,
-                         "event_ind" = train_cv$event_ind,
+                         "event" = train_cv$event,
                          "covariates" = train_cv[, grepl("covariates", names(train_cv))],
                          "offset" = train_cv$offset)
         # Standardize
@@ -419,7 +421,7 @@ mtool.multinom.cv.ws <- function(train,
         train_cv$covariates <- as.data.frame(cov_scaled)
         
         test_cv <- list("time" = test_cv$covariates.time,
-                        "event_ind" = test_cv$event_ind,
+                        "event" = test_cv$event,
                         "covariates" = as.matrix(test_cv[, grepl("covariates", names(test_cv))]),
                         "offset" = test_cv$offset)
         
@@ -435,7 +437,7 @@ mtool.multinom.cv.ws <- function(train,
         #                                     fit_fun = fit_fun)
         #                     }, mc.cores = ncores, mc.set.seed = seed)
         # test_cv <- list("time" = test_cv$covariates.time,
-        #                 "event_ind" = test_cv$event_ind,
+        #                 "event" = test_cv$event,
         #                 "covariates" = as.matrix(test_cv[, grepl("covariates", names(test_cv))]),
         #                 "offset" = test_cv$offset)
         
@@ -474,18 +476,18 @@ mtool.multinom.cv.ws <- function(train,
             # Update the warm start
             if (ws) {
                 path_warm_start_params <- current_fit$coefficients
-                fit_fun_loop <- function(..., learning_rate = 1e-4,
-                                         niter_inner_mtplyr = 2,
-                                         maxit = 100,
-                                         tolerance = 1e-4) {
-                    j <- j
-                    args <- list(...,
-                                 maxit = maxit,
-                                 niter_inner_mtplyr = niter_inner_mtplyr,
-                                 learning_rate = learning_rate/(j^(5/3)),
-                                 tolerance = tolerance/(j^(4/3)))
-                    do.call(fit_fun, args)
-                }
+                # fit_fun_loop <- function(..., learning_rate = 1e-4,
+                #                          niter_inner_mtplyr = 2,
+                #                          maxit = 100,
+                #                          tolerance = 1e-4) {
+                #     j <- j
+                #     args <- list(...,
+                #                  maxit = maxit,
+                #                  niter_inner_mtplyr = niter_inner_mtplyr,
+                #                  learning_rate = learning_rate/(j^(5/3)),
+                #                  tolerance = tolerance/(j^(4/3)))
+                #     do.call(fit_fun, args)
+                # }
             }
         }
         
@@ -573,7 +575,7 @@ mtool.multinom.cv.ws2 <- function(train, regularization = 'elastic-net', lambda_
     cb_data_train <- cb_data_train %>%
         select(-time)
     # Create folds 
-    folds <- caret::createFolds(factor(cb_data_train$event_ind), k = nfold, list = FALSE)
+    folds <- caret::createFolds(factor(cb_data_train$event), k = nfold, list = FALSE)
     lambda.min <- rep(NA_real_, nfold)
     all_deviances <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
     non_zero_coefs <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
@@ -584,7 +586,7 @@ mtool.multinom.cv.ws2 <- function(train, regularization = 'elastic-net', lambda_
         test_cv <- cb_data_train[which(folds == i), ] #Set the validation set
         # Create X and Y
         train_cv <- list("time" = train_cv$time,
-                         "event_ind" = train_cv$event_ind,
+                         "event" = train_cv$event,
                          "covariates" = train_cv[, grepl("covariates", names(train_cv))],
                          "offset" = train_cv$offset)
         # Standardize
@@ -599,7 +601,7 @@ mtool.multinom.cv.ws2 <- function(train, regularization = 'elastic-net', lambda_
         #                                     fit_fun = fit_fun)
         #                     }, mc.cores = ncores, mc.set.seed = seed)
         # test_cv <- list("time" = test_cv$covariates.time,
-        #                 "event_ind" = test_cv$event_ind,
+        #                 "event" = test_cv$event,
         #                 "covariates" = as.matrix(test_cv[, grepl("covariates", names(test_cv))]),
         #                 "offset" = test_cv$offset)
         
@@ -649,7 +651,7 @@ mtool.multinom.cv.ws2 <- function(train, regularization = 'elastic-net', lambda_
             }
         
         test_cv <- list("time" = test_cv$covariates.time,
-                        "event_ind" = test_cv$event_ind,
+                        "event" = test_cv$event,
                         "covariates" = as.matrix(test_cv[, grepl("covariates", names(test_cv))]),
                         "offset" = test_cv$offset)
         
@@ -1568,7 +1570,7 @@ mtool.multinom.cv_cluster <- function(train, regularization = 'elastic-net', lam
     cb_data_train <- cb_data_train %>%
         select(-time)
     # Create folds 
-    folds <- caret::createFolds(factor(cb_data_train$event_ind), k = nfold, list = FALSE)
+    folds <- caret::createFolds(factor(cb_data_train$event), k = nfold, list = FALSE)
     lambda.min <- rep(NA_real_, nfold)
     all_deviances <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
     non_zero_coefs <- matrix(NA_real_, nrow = length(lambdagrid), ncol = nfold)
@@ -1579,7 +1581,7 @@ mtool.multinom.cv_cluster <- function(train, regularization = 'elastic-net', lam
         test_cv <- cb_data_train[which(folds == i), ] #Set the validation set
         # Create X and Y
         train_cv <- list("time" = train_cv$time,
-                         "event_ind" = train_cv$event_ind,
+                         "event" = train_cv$event,
                          "covariates" = train_cv[, grepl("covariates", names(train_cv))],
                          "offset" = train_cv$offset)
         rm(cb_data_train)
@@ -1612,7 +1614,7 @@ mtool.multinom.cv_cluster <- function(train, regularization = 'elastic-net', lam
                              })
         cat("Completed CV")
         test_cv <- list("time" = test_cv$covariates.time,
-                        "event_ind" = test_cv$event_ind,
+                        "event" = test_cv$event,
                         "covariates" = as.matrix(test_cv[, grepl("covariates", names(test_cv))]),
                         "offset" = test_cv$offset)
         # Standardize

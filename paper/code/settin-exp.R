@@ -185,6 +185,7 @@ for (i in start_sims:sims) {
     # }
     
     
+    ratio <- 20
     tic()
     cv.lambdaAcc <- mtool.multinom.cv(train, seed = 1, alpha = 0.7, 
                                          nfold = 5, 
@@ -194,10 +195,24 @@ for (i in start_sims:sims) {
                                          # lambda_max = 0.5,
                                          # ws = F,
                                          grid_size = 60,
+                                      train_ratio = ratio
                                       )
     toc()
     
     plot_cv.multinom(cv.lambdaAcc)
+    cv.lambdaAcc$lambda.min
+    
+    set.seed(1)
+    cv.lambdaAcc2 <- cv_cb_model(Surv(ftime, fstatus) ~ .,
+                                 train, alpha = 0.7, 
+                                 nfold = 5, 
+                                 fit_fun = mtool_cv,
+                                 
+                                 grid_size = 60,
+                                 ratio = ratio
+    )
+    plot(cv.lambdaAcc2)
+    cv.lambdaAcc2$lambda.min
     
     
     # Test set 
@@ -206,8 +221,20 @@ for (i in start_sims:sims) {
     # Covariance matrix
     cov_val <- cbind(test[, c(grepl("X", colnames(test)))], time = log(test$ftime))
     
+    
     # Case-base dataset
-    cb_data_val <- create_cbDataset(surv_obj_val, as.matrix(cov_val))
+    set.seed(123)
+    cb_data_val <- create_cbDataset(surv_obj_val, as.matrix(cov_val),
+                                    ratio = ratio)
+    set.seed(123)
+    cb_data_val2 <- create_cb_data(Surv(ftime, fstatus) ~ .,
+                                   test,
+                                   ratio = ratio)
+    
+    log(cb_data_val$time)
+    
+    dim(cb_data_val$covariates)
+    dim(cb_data_val2$covariates)
     
     # Case-base fits 
     # Lambda.min
@@ -218,7 +245,16 @@ for (i in start_sims:sims) {
                                    unpen_cov = 2,
                                    fit_fun = mtool_cv)
     
+    fit_val_min_acc2 <- fit_cb_model(cb_data_val2, regularization = 'elastic-net',
+                                   lambda = cv.lambdaAcc2$lambda.min, alpha = 0.7,
+                                   fit_fun = mtool_cv)
+    
+    fit_val_min_acc
+    fit_val_min_acc2
+    
     res_cb_min1_acc <- varsel_perc(fit_val_min_acc$coefficients[1:eval(parse(text="p")), 1], beta1)
+    
+    res_cb_min1_acc2 <- varsel_perc(fit_val_min_acc2$coefficients[1:eval(parse(text="p")), 1], beta1)
     
     res_cb_min2_acc <- tryCatch(
         {varsel_perc(fit_val_min_acc$coefficients[1:eval(parse(text="p")), 2], beta2)}, 
@@ -230,6 +266,11 @@ for (i in start_sims:sims) {
     
     # Calculate MSE here as well
     casebase_mse1_acc <-mse_bias(fit_val_min_acc$coefficients[1:eval(parse(text="p")), 1], beta1)
+    
+    casebase_mse1_acc2 <-mse_bias(fit_val_min_acc2$coefficients[1:eval(parse(text="p")), 1], beta1) # Correct it
+    
+    mean((fit_val_min_acc$coefficients[1:eval(parse(text="p")), 1]- beta1)^2)
+    mean((fit_val_min_acc2$coefficients[1:eval(parse(text="p")), 1]- beta1)^2)
     
     ############################ Case-base with post-"elastic net" ###########################
     cb_postenet_acc <- tryCatch(

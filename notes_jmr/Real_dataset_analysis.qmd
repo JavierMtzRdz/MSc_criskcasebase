@@ -21,6 +21,7 @@ format:
       \usepackage[usenames,dvipsnames,table]{xcolor}
       \usepackage{booktabs} % For improved table lines
       \renewcommand{\arraystretch}{1} % Increase row spacing
+      \pagenumbering{arabic}
       \renewcommand\thefigure{\arabic{figure}}
     fontsize: 12pt
     colorlinks: true
@@ -28,6 +29,8 @@ knitr:
   opts_chunk:
     comment: "#>"
     message: FALSE
+    echo: TRUE
+    warning: FALSE
     dev: "png"
     fig.width: 8
     fig.height: 4.5
@@ -65,10 +68,14 @@ library(cmprsk)
 library(glue)
 library(pec)
 library(survminer)
+library(rsample)
+
 
 
 source(here(#"MSc_criskcasebase",
             "paper","code", "fitting_functionsV2.R"))
+source(here(#"MSc_criskcasebase",
+            "paper","code", "fitting_functionsV3.R"))
 
 ## Load fonts ----
 extrafont::loadfonts(quiet = TRUE)
@@ -83,195 +90,1164 @@ save <- F
 
 ```
 
+This analysis compares distinct approaches for modelling competing risks using a high-dimensional dataset on non-muscle-invasive bladder cancer from @DyrskjotKruhofferThykjaer:2004. This dataset includes gene expression (1,381 variables), clinical information, records of death (for bladder cancer, other causes, and not registered), and the time to the event (progression-free survival). In total, the dataset contains 404 observations.
+
+We will compare the performance of this multinomial model against a penalized binary Cox proportional hazards model. In this common approach, a separate model is fitted for each event type, treating all other competing events as censored. This dataset has previously been analyzed by @TapakSaidijamSadeghifar:2015 using cause-specific Cox models with LASSO, elastic net, SCAD, and SICA penalizations to identify prognostic gene signatures. 
+
+# Preprocess data
+
+First, the two gene expression files were loaded, combined, and transposed to create a dataset where each row is a patient and each column is a gene probe. Next, the clinical data was loaded and cleaned by handling missing values and formatting key variables for survival analysis, including the survival `time` and a categorical `event` for competing outcomes. A minor adjustment was made, converting any survival times of 0 to 0.001 to prevent computational errors.
+
+Finally, the gene expression and clinical datasets were merged by a unique `sample_id`. The resulting dataset was then filtere to include only the patient cohort used in the original study [@DyrskjotKruhofferThykjaer:2004] and to remove samples with missing data.  As a result, the dataset kept 301 out of the 404 original observations.
+
 ```{r}
-#| echo: false
-#| warning: false
+# Process microarray data ---
+bladder_fpd1 <- read_delim(here::here("notes_jmr/data/GSE5479_Final_processed_data_1.txt"))
+bladder_fpd2 <- read_delim(here::here("notes_jmr/data/GSE5479_Final_processed_data_2.txt"))
 
-# Load coefficients
-blader <- read_delim(here::here("notes_jmr/data/GSE5479_clinical_information.txt")) %>% 
-    clean_names()
+bladder_fpd <- t(cbind(bladder_fpd1[, -1], bladder_fpd2[, -1])) %>% 
+    data.frame() %>% 
+    tibble() %>% 
+    bind_cols(tibble(sample_id = c(names(bladder_fpd1[, -1]), 
+                            names(bladder_fpd2[, -1])))) %>% 
+    set_names(c(bladder_fpd1$probe, "sample_id")) %>% 
+    clean_names() %>% 
+    select(sample_id, everything())
 
-blader1 <- read_delim(here::here("notes_jmr/data/GSE5479_Final_processed_data_1.txt")) %>% 
-    t() %>% 
-    row_to_names(row_number = 1)
+# Process clinical information
 
-dim(blader1)
+bladder_hd <- read_xls(here::here("notes_jmr/data/6517200/10780432ccr062940-sup-supplemental_file_1.xls")) %>% 
+    clean_names() %>% 
+    mutate(across(everything(), \(x)case_when(x == "-" ~ NA, 
+                                              T ~ x))) %>% 
+    transmute(
+        sample_id = case_match(sample_id,
+                               "1082-1" ~ "1082-1_DK",
+                               "20421_S (91?)" ~ "20421_S",
+                               .default = sample_id),
+        country,
+        # Survival time and event 
+        event = progression_0_no_progression_1_progression_to_t1_2_progression_to_t2,
+        time = as.numeric(progression_free_survival),
+        # time = as.numeric(follow_up_total),
+        # Adjust time = 0
+        time = ifelse(time == 0, 0.001, time),
+        # Clinical variables
+        age = as.numeric(age),
+        female = if_else(str_trim(sex) == "F", 1, 0),
+        progression = factor(progression_0_no_progression_1_progression_to_t1_2_progression_to_t2),
+        clinicalrisk = clinical_risk_1_high_risk_0_low_risk,
+        followup = follow_up_months_from_tumor_to_last_visit_to_the_clinic_or_to_cystectomy,
+        ## Reclassification of NA based on paper
+        treatment = case_when(is.na(bcg_mmc_treatment) ~ "No treatment",
+                              T ~ bcg_mmc_treatment),
+        cystectomy = cystectomy,
+        grade = reevaluated_who_grade_no_reevaluation,
+        stage = reevaluated_pathological_disease_stage_no_reevaluation,
+        # Identify samples used in the original paper's model training/validation
+        progmodel = as.numeric(!is.na(samples_used_for_training_progression_classifier) | !is.na(samples_used_for_validating_progression_classifier))
+ )
 
-blader2 <- read_delim(here::here("notes_jmr/data/GSE5479_Final_processed_data_2.txt")) %>% 
-    t() %>% 
-    row_to_names(row_number = 1) 
-    
-dim(blader2)
 
-blader %>% 
-    count(make_clean_names(sample_name))
+# Create complete bd
+bladder_comp <- bladder_hd %>% 
+    mutate(sample_id = case_when(sample_id == "692-1" ~ paste0(sample_id,
+                                                               "_",
+                                                               country),
+                                  T ~ sample_id)) %>%
+    select(-country) %>%
+    full_join(bladder_fpd %>% 
+                  #' Creating individual ID's for repeated ids.
+                  #' It assumes that the samples follow the same order as in 
+                  #' supplementary file.
+                  mutate(sample_id = case_when(sample_id == "692-1...144" ~ "692-1_F",
+                                               sample_id == "692-1...145" ~ "692-1_DK",
+                                               T ~ sample_id)), 
+              by = join_by(sample_id)) %>% 
+    filter(progmodel == 1,
+           !is.na(age),
+           !is.na(female)) %>% 
+    select(-sample_id, -clinicalrisk, -cystectomy,
+           -progmodel, -followup, -progression)
 
-janitor::make_clean_names()
+
 ```
 
-# Simulations
+# EDA
+
+The majority of patients (227) were censored, 20 patients died from bladder cancer and 54 patients died from other causes. 
 
 ```{r}
-#| echo: false
-#| warning: false
-if (F){
-select_mod <- map_df(1:nrow(data_proj), 
-                    function(i){data_proj[i,-1] %>% 
-                            select(-sim) %>% 
-    bind_cols(suppressMessages(readRDS(data_proj$name_files_comp[i])) %>% 
-                  mutate(model_size = TP + FP) #%>% 
-                  # mutate(model = case_match(model,
-                  #                           "iCR.bias" ~ "enet-iCR",
-                  #                           "penCRbias" ~ "enet-penCR",
-                  #                           "CB-bias" ~ "enet-casebase",
-                  #                           "CB-bias-Acc" ~ "enet-casebase-Acc",
-                  #                           "postCB-bias" ~ "postenet-casebase",
-                  #                           "postCB-bias-Acc" ~ "postenet-casebase-Acc"))
-              )})
-# coefs_mod <- coefs_mod %>% 
-#     filter(!str_detect(model, "bias"))
+#" Count events
+bladder_comp %>% 
+    count(event) %>% 
+    adorn_totals()
+```
 
-saveRDS(select_mod, here("paper", "results", "select_mod.rds"))
+
+The distribution of progression-free survival time is multi-modal, with a notable peak around 50 months and a long right tail. The average progression-free survival time across the cohort was 49.5 months. The population time plot visualizes the decrease in the at-risk population over the study's duration, with points indicating when progression events occurred.
+
+```{r}
+# Time 
+## Time dist
+bladder_comp %>% 
+    ggplot(aes(x = time)) +
+    geom_density() +
+    labs(x = "Progression free survival",
+         y = "Density")
+
+## Mean time
+mean(bladder_comp$event)
+
+## Population time plot
+plot(popTime(bladder_comp, "time", "event"),
+      add.competing.event = TRUE,
+     comprisk = TRUE)
+```
+
+
+The patient population is predominantly male (241 males vs. 60 females), with an age distribution that peaks around 70 years.
+
+```{r}
+# Clinical variables
+## Age dist
+bladder_comp %>% 
+    ggplot(aes(x = age,)) +
+    geom_density(fill = "grey") +
+    labs(x = "Age",
+         y = "Density")
+
+bladder_comp %>% 
+    ggplot(aes(x = age, colour = as.character(event),
+               fill = as.character(event))) +
+    geom_density(alpha = 0.5) +
+    labs(x = "Age",
+         y = "Density")
+
+## Categorical var. levels
+bladder_comp %>% 
+    select(female:stage) %>% 
+    mutate(across(everything(), as.character)) %>% 
+    pivot_longer(everything(),
+                 names_to = "Var",
+                 values_to = "Category") %>% 
+    group_split(Var, .keep = T) %>% 
+    map(~count(.,Var, Category) %>% 
+    adorn_totals())
+```
+
+
+Analysis of the clinical categories indicates that most patients had high-grade tumors and were at the pTa stage. A significant portion of the cohort (219 patients) did not receive intravesical BCG or MMC treatment.
+
+Based on these categories, grade, stage, and treatment were recategorized as done in @KeBandyopadhyaySarkar:2023. The PUNLMP (Papillary Urothelial Neoplasm of Low Malignant Potential) was classified as a low-grade. For the stage, all derived subcomments were removed, leaving only the pTa, pTis, and T1 categories. In comparison to @KeBandyopadhyaySarkar:2023, they removed the observation with pTis stage. Lastly, treatment was classified as non versus either BCG or MMC. Another relevant difference from @KeBandyopadhyaySarkar:2023 is that they categorized age; however, we do not have a clear reason to create arbitrary groups. 
+
+It is worth noting that the baseline categories were set to low for grade, pTa for stage, and none for treatment. This is especially relevant as the coefficients depend on the baseline group. Additionally, this can explain a different selection compared to previous studies using case-specific Cox models. For example, @TapakSaidijamSadeghifar:2015 used these models, but the preprocessing for the clinical variables and baseline categories was not found.
+
+```{r}
+# Adjust categories
+bladder_comp_adj <- bladder_comp %>% 
+    mutate(grade = str_remove(grade, "\\*| OBS"),
+           grade = case_when(str_detect(grade, "PUNLMP") ~ "LOW",
+                             T ~ grade),
+           grade = fct_relevel(grade, "LOW"),
+           stage = case_when(str_detect(stage, "pTa") ~ "pTa",
+                             str_detect(stage, "T1|pTis") ~ "T1",
+                             T ~ stage),
+           stage = fct_relevel(stage, "pTa"),
+           # No treatment as base
+           treatment = ifelse(str_detect(treatment, "BCG|MMC"), 1, 
+                              0)) 
+
+bladder_comp_adj %>% 
+    select(female:stage) %>% 
+    mutate(across(everything(), as.character)) %>% 
+    pivot_longer(everything(),
+                 names_to = "Var",
+                 values_to = "Category") %>% 
+    group_split(Var, .keep = T) %>% 
+    map(~count(.,Var, Category) %>% 
+    adorn_totals())
+
+
+## Categorical var. levels
+
+bladder_comp_adj <- model.matrix(~ .,
+                                 data = bladder_comp_adj)[,-1] %>% 
+    as_tibble()
+
+```
+
+
+
+# Model Fitting and Tuning
+
+```{r}
+# Create a stratified 75/25 split
+set.seed(1234)
+split <- initial_split(bladder_comp_adj, prop = 0.75, strata = event)
+
+# Create training and testing data frames
+train <- training(split)
+test  <- testing(split)
+
+# Verify the proportions
+table(train$event) / nrow(train)
+table(test$event) / nrow(test)
+```
+
+
+## Multinomial Elastic-Net Case-Base Model 
+
+```{r}
+# Define the fitting function 
+fit_fun <- purrr::partial(cbSCRIP::MNlogistic,
+                                niter_inner_mtplyr = 2,
+                                maxit = 200,
+                                tolerance = 1e-4,
+                                learning_rate = 1e-4,
+                                verbose = F,
+                                save_history = F)   
+
+# Perform cross-validation on the training data
+
+train %>% 
+    count(female, treatment, gradeHIGH, stageT1, event)
+
+if(save){
+    
+    set.seed(1234)
+    cv_multinom_enet <- cv_cbSCRIP(
+        Surv(time, event) ~ .,
+        cbind(train[,-(2:7), , drop = FALSE],
+              train[,2:7, , drop = FALSE]),
+        n_unpenalized = 7,
+        alpha = 0.7,
+        nfold = 5,
+        nlambda = 50,
+        fit_fun = fit_fun)
+    
+    plot(cv_multinom_enet)
+    
+    write_rds(cv_multinom_enet,
+            here("paper",
+                                 "results",
+                                 glue("cv_multinom_enet.rds")))
+    
+    # set.seed(1234)
+    # 
+    # fit.min <- cbSCRIP(
+    #     Surv(time, event) ~ .,
+    #     data = cbind(train[,-(2:7), , drop = FALSE],
+    #           train[,2:7, , drop = FALSE]),
+    #     # cb_data = cb_data_gen,
+    #     n_unpenalized = 7,
+    #     alpha = 0.5,
+    #     lambda = .1,
+    #     fit_fun = fit_fun,
+    #     ratio = 50
+    # )
+    # 
+    # X_t <- model.matrix(~., 
+    #              data = data.frame(cbind(fit.min$cb_data$covariates, 
+    #                                      time = log(fit.min$cb_data$time))))
+    # 
+    # X_t <- cbind(X_t[,-1], X_t[,1])
+    # 
+    # p.fac <- rep(1, ncol(X_t))
+    # p.fac[(1388+1-7):1388] <- 0
+    # 
+    # fit.min$models_info[[1]]$convergence_pass
+    # fit.min$models_info[[1]]$coefficients_sparse
+    # loss <- map_vec(fit.min$models_info[[1]]$coefficients_history,
+    #                 ~calculate_penalized_multinomial_loss(
+    #                     .x,
+    #                     alpha = 0.7,
+    #                     lambda = 0.01,
+    #                     Y = fit.min$cb_data$event,
+    #                     X = X_t,
+    #                     offset = fit.min$cb_data$offset,
+    #                     penalty_weights = p.fac))
+    # 
+    # if(min(loss) < min_loss) min_loss <- min(loss)
+    # 
+    # tibble(iter = 1:length(loss),
+    #        loss = loss) %>% 
+    #     mutate(loss_diff = loss - min_loss) %>% 
+    #     ggplot(aes(x = iter, y = loss_diff)) +
+    #     geom_line() +
+    #     scale_y_log10() +
+    #     labs(y = "F(x)-F(x*)")
+    
 }
-select_mod <- readRDS(here("paper", "results", "select_mod.rds"))
 
 
-```
-
-## Results
-
-One example
-```{r}
-select_mod %>% 
-    filter(p == 1000, k == 168) %>% 
-    filter(sim == 17,
-           setting == 1) %>% 
-    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
-               color = model)) +
-    geom_path() +
-    coord_equal()
+cv_multinom_enet <- readRDS(here("paper",
+                                 "results",
+                                 glue("cv_multinom_enet.rds")))
 
 
-select_mod %>% 
-      filter(p == 1000, k == 168) %>% 
-    filter(name == first(name)) %>% 
-    ggplot(aes(x = model_size, y = Specificity,
-               color = model)) +
-    geom_path() +
-    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
-```
+plot(cv_multinom_enet)
 
-Multiple examples
-```{r}
-#| fig-height: 7
+coefs_1 <- cv_multinom_enet$fit.min$coefficients[,1]
 
-select_mod %>% 
-    filter(setting == 1) %>% 
-    arrange(p, model_size) %>% 
-    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
-               color = model)) +
-    geom_smooth(size = 0.5, 
-                span = 0.8,
-                se = FALSE) +
-    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) +
-    coord_equal()
+# selected variables for event 1.
+select_coef_cbscrip_enet <- coefs_1[!same(coefs_1, 0)]
+# select_coef_cbscrip_enet <- cv_multinom_enet$fit.min$coefficients[!same(cv_multinom_enet$fit.min$coefficients[,1], 0) ,1]
 
+sum(!same(cv_multinom_enet$fit.min$coefficients_sparse, 0))
 
-sum_selec <- select_mod %>% 
-    # filter(sim <=15) %>%
-    group_by(model, setting, dim, p, k, model_size) %>% 
-    summarise(n_models = n(),
-              across(Sensitivity:MCC, mean))
-
-sum_selec %>% 
-    filter(setting == 1) %>% 
-    arrange(p, model_size) %>% 
-    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
-               color = model)) +
-    geom_path() +
-    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) +
-    coord_equal()
-    
-    
-    
+## Number of non zero variables
+length(select_coef_cbscrip_enet) - 7
+select_coef_cbscrip_enet
 
 ```
 
+## Multinomial SCAD Case-Base Model 
+```{r}
+
+# Perform cross-validation on the training data
+set.seed(1234)
+if(save){
+    cv_multinom_scad <- cv_cbSCRIP(
+        Surv(time, event) ~ .,
+        cbind(train[,-(2:7), , drop = FALSE],
+              train[,2:7, , drop = FALSE]),
+        n_unpenalized = 7,
+        nfold = 5,
+        nlambda = 50,
+        lambda.min.ratio = 0.01,
+        fit_fun = fit_fun,
+        regularization = "SCAD",
+        ratio = 50
+    )
+    
+       saveRDS(cv_multinom_scad,
+            here("paper",
+                "results",
+                glue("cv_multinom_scad.rds")))
+}
+
+cv_multinom_scad <- readRDS(here("paper",
+                "results",
+                glue("cv_multinom_scad.rds")))
+
+plot(cv_multinom_scad)
+
+# selected variables for event 1.
+coefs_1_scad <- cv_multinom_scad$fit.min$coefficients[,1]
+
+# selected variables for event 1.
+select_coef_cbscrip_scad <- coefs_1_scad[!same(coefs_1_scad, 0)]
+# select_coef_cbscrip_scad <- cv_multinom_scad$fit.min$coefficients[!same(cv_multinom_scad$fit.min$coefficients[,1], 0) ,1]
+
+select_coef_cbscrip_scad
+## Number of non zero variables
+sum(!same(select_coef_cbscrip_scad, 0)) - 7
+
+```
+
+
+## Cause-specific Cox models with Elastic-net
+
+### W/ Partial Likelihood Deviance
 
 ```{r}
 
-select_mod %>% 
-    filter(setting == 1,
-           # model_size %% 10 == 0,
-           model_size <= 250) %>% 
-        arrange(p, model_size) %>% 
-    ggplot(aes(x = model_size, y = Sensitivity,
-               color = model)) +
-    # geom_path() +
-    geom_path(aes(group = sim), alpha = 0.) +
-      geom_smooth(span = 0.8,
-                  size = 0.5,
-                se = FALSE) +
-    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+y <- Surv(time = train$time, 
+          event = as.numeric(train$event == 1))
 
-select_mod %>% 
-    filter(setting == 1,
-           # model_size %% 10 == 0,
-           model_size <= 250) %>% 
-        arrange(p, model_size) %>% 
-    ggplot(aes(x = model_size, y = Specificity,
-               color = model)) +
-    # geom_path() +
-    geom_path(aes(group = sim), alpha = 0.1) +
-      geom_smooth(span = 0.8,
-                  size = 0.5,
-                se = FALSE) +
-    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+x <- model.matrix(event ~ . -time,
+                  data = train)
 
-select_mod %>% 
-    filter(setting == 1,
-           # model_size %% 10 == 0,
-           model_size <= 250) %>% 
-        arrange(p, model_size) %>% 
-    ggplot(aes(x = model_size, y = MCC,
-               color = model)) +
-    # geom_path() +
-    geom_path(aes(group = sim), alpha = 0.1) +
-      geom_smooth(span = 0.8,
-                  size = 0.5,
-                se = FALSE) +
-    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+p.fac <- rep(1, ncol(x))
+p.fac[1:6] <- 0
+
+set.seed(1234)
+cox_enet_mod <- cv.glmnet(x = x, y = y, family = "cox",
+                          # family = "binomial",
+                          penalty.factor = p.fac,
+                          nfolds = 5,
+                          alpha = 0.7,   
+                          thresh = 1e-9,
+                          maxit = 1e9)
+
+plot(cox_enet_mod)
 
 
-sum_selec %>% 
-    filter(setting == 1,
-           # model_size %% 10 == 0,
-           model_size <= 250) %>% 
-        arrange(p, model_size) %>% 
-    ggplot(aes(x = model_size, y = Sensitivity,
-               color = model)) +
-    geom_path() +
-    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+cc_enet_min <- coef(cox_enet_mod, s = cox_enet_mod$lambda.min)
 
-sum_selec %>% 
-    filter(setting == 1,
-           # model_size %% 10 == 0,
-           model_size <= 250) %>% 
-        arrange(p) %>% 
-    ggplot(aes(x = model_size, y = Specificity,
-               color = model)) +
-    geom_path() +
-    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+select_vars_enet <- cc_enet_min@Dimnames[[1]][-1][cc_enet_min@i]
 
-sum_selec %>% 
-    filter(setting == 1,
-           # model_size %% 10 == 0,
-           model_size <= 250) %>% 
-        arrange(p) %>% 
-    ggplot(aes(x = model_size, y = MCC,
-               color = model)) +
-    geom_path() +
-    facet_wrap(paste0("Setting ", setting) ~fct_inorder(dim)) 
+selected_coefs_enet <- cc_enet_min@x
+
+names(selected_coefs_enet) <- select_vars_enet
+
+selected_coefs_enet
+
+length(selected_coefs_enet)
+
+```
+
+### W/ C Index
+
+```{r}
+y <- Surv(time = train$time, 
+          event = as.numeric(train$event == 1))
+
+x <- model.matrix(event ~ . -time,
+                  data = train)
+
+p.fac <- rep(1, ncol(x))
+p.fac[1:6] <- 0
+
+set.seed(1234)
+cox_enet_c_mod <- cv.glmnet(x = x, y = y, family = "cox",
+                          # family = "binomial",
+                          penalty.factor = p.fac,
+                          nfolds = 5,
+                          alpha = 0.7,   
+                          thresh = 1e-9,
+                          type.measure = "C",
+                          maxit = 1e9)
+
+plot(cox_enet_c_mod)
+
+cc_enet_c_min <- coef(cox_enet_c_mod, s = cox_enet_c_mod$lambda.min)
+
+select_vars_enet_c <- cc_enet_c_min@Dimnames[[1]][-1][cc_enet_c_min@i]
+
+selected_coefs_enet_c <- cc_enet_c_min@x
+
+names(selected_coefs_enet_c) <- select_vars_enet_c
+
+selected_coefs_enet_c
+
+length(selected_coefs_enet_c)
+
+```
+
+## Cause-specific Cox models with LASSO
+
+### W/ Partial Likelihood Deviance
+
+```{r}
+
+y <- Surv(time = train$time, 
+          event = as.numeric(train$event == 1))
+
+x <- model.matrix(event ~ . -time,
+                  data = train)
+
+p.fac <- rep(1, ncol(x))
+p.fac[1:6] <- 0
+
+set.seed(1234)
+cox_lasso_mod <- cv.glmnet(x = x, y = y, family = "cox",
+                          # family = "binomial",
+                          penalty.factor = p.fac,
+                          nfolds = 5,
+                          alpha = 1,   
+                          thresh = 1e-9,
+                          maxit = 1e9)
+
+plot(cox_lasso_mod)
+
+
+cc_lasso_min <- coef(cox_lasso_mod, s = cox_lasso_mod$lambda.min)
+
+select_vars_lasso <- cc_lasso_min@Dimnames[[1]][-1][cc_lasso_min@i]
+
+selected_coefs_lasso <- cc_lasso_min@x
+
+names(selected_coefs_lasso) <- select_vars_lasso
+
+selected_coefs_lasso
+
+length(selected_coefs_lasso)
+
+```
+
+### W/ C Index
+
+```{r}
+y <- Surv(time = train$time, 
+          event = as.numeric(train$event == 1))
+
+x <- model.matrix(event ~ . -time,
+                  data = train)
+
+p.fac <- rep(1, ncol(x))
+p.fac[1:6] <- 0
+
+set.seed(1234)
+cox_lasso_c_mod <- cv.glmnet(x = x, y = y, family = "cox",
+                          # family = "binomial",
+                          penalty.factor = p.fac,
+                          nfolds = 5,
+                          alpha = 1,   
+                          thresh = 1e-9,
+                          type.measure = "C",
+                          maxit = 1e9)
+
+plot(cox_lasso_c_mod)
+
+cc_lasso_c_min <- coef(cox_lasso_c_mod, s = cox_lasso_c_mod$lambda.min)
+
+select_vars_lasso_c <- cc_lasso_c_min@Dimnames[[1]][-1][cc_lasso_c_min@i]
+
+selected_coefs_lasso_c <- cc_lasso_c_min@x
+
+names(selected_coefs_lasso_c) <- select_vars_lasso_c
+
+selected_coefs_lasso_c
+
+length(selected_coefs_lasso_c)
+
+```
+
+## Summary
+
+```{r}
+# No penalizar variables clínicas. 
+
+cbscrip_enet_coefs <- select_coef_cbscrip_enet[!(names(select_coef_cbscrip_enet) %in%
+                                            c("(Intercept)",
+                                              "log(time)"))]
+cbscrip_scad_coefs <- select_coef_cbscrip_scad[!(names(select_coef_cbscrip_scad) %in%
+                                            c("(Intercept)",
+                                              "log(time)"))]
+
+tibble(vars = names(selected_coefs_lasso),
+       lasso = selected_coefs_lasso) %>% 
+    full_join(tibble(vars = names(selected_coefs_lasso_c),
+                     lasso_c = selected_coefs_lasso_c),
+              by = join_by(vars))  %>%
+    full_join(tibble(vars = names(selected_coefs_enet),
+                     enet = selected_coefs_enet),
+              by = join_by(vars))  %>% 
+    full_join(tibble(vars = names(selected_coefs_enet_c),
+                     enet_c = selected_coefs_enet_c),
+              by = join_by(vars))  %>% 
+    full_join(tibble(vars = names(cbscrip_enet_coefs),
+                     cbscrip_enet = cbscrip_enet_coefs),
+              by = join_by(vars))  %>% 
+    full_join(tibble(vars = names(cbscrip_scad_coefs),
+                     cbscrip_scad = cbscrip_scad_coefs),
+              by = join_by(vars)) %>% 
+    kbl()
+    
+    
+```
+
+# Analysis whitout Clinical Variables
+
+## Multinomial Elastic-net Case-Base Model 
+```{r}
+
+# Perform cross-validation on the training data
+
+if(save){
+    
+    set.seed(1234)
+    fit_fun <- purrr::partial(cbSCRIP::MNlogistic,
+                                niter_inner_mtplyr = 2,
+                                maxit = 200,
+                                tolerance = 1e-4,
+                                learning_rate = 1e-4,
+                                verbose = F,
+                                save_history = F)   
+    cv_multinom_enet_nc <- cv_cbSCRIP(
+        Surv(time, event) ~ .,
+        train[,-(3:7), , drop = FALSE],
+        alpha = 0.7,
+        nfold = 5,
+        nlambda = 50,
+        fit_fun = fit_fun,
+        ratio = 50)
+    
+    plot(cv_multinom_enet_nc)
+    
+    saveRDS(cv_multinom_enet_nc, here("paper",
+                 "results",
+                 glue("cv_multinom_enet_nc.rds")))
+    
+}
+
+
+
+enet_nc <- cbSCRIP(
+        Surv(time, event) ~ .,
+        train[,-(3:7), , drop = FALSE],
+        alpha = 0.7,
+        lambda = cv_multinom_enet_nc$lambdagrid[11], #TODO: steps
+        fit_fun = fit_fun,
+        ratio = 50)
+
+sum(!same(enet_nc$coefficients[[1]][,1], 0))
+enet_nc$coefficients[[1]][,1][!same(enet_nc$coefficients[[1]][,1], 0)]
+
+enet_nc$coefficients[[1]][,2][!same(enet_nc$coefficients[[1]][,2], 0)]
+
+
+cv_multinom_enet_nc <- readRDS(here("paper",
+                                 "results",
+                                 glue("cv_multinom_enet_nc.rds")))
+
+
+plot(cv_multinom_enet_nc)
+
+coefs_1_nc <- cv_multinom_enet_nc$fit.min$coefficients[,1]
+
+# selected variables for event 1.
+select_coef_cbscrip_enet_nc <- coefs_1_nc[!same(coefs_1_nc, 0)]
+
+sum(!same(cv_multinom_enet_nc$fit.min$coefficients_sparse, 0))
+
+## Number of non zero variables
+length(select_coef_cbscrip_enet_nc) - 2
+select_coef_cbscrip_enet_nc
+ 
+
+1. Análisis sólo con genes. Con (sin penalizar) y sin clínicas. W - 1SE lambda. 
+2. Repetitions and interesections.
+3. Prediction plots.
+```
+
+## Multinomial SCAD Case-Base Model 
+```{r}
+
+# Perform cross-validation on the training data
+if(save){
+    
+    set.seed(1234)
+    cv_multinom_scad_nc <- cv_cbSCRIP(
+        Surv(time, event) ~ .,
+        cbind(train[,-(2:7), , drop = FALSE],
+              train[,2:7, , drop = FALSE]),
+        nfold = 5,
+        nlambda = 50,
+        fit_fun = fit_fun,
+        regularization = "SCAD",
+        ratio = 50
+    )
+    
+       saveRDS(cv_multinom_scad_nc,
+            here("paper",
+                "results",
+                glue("cv_multinom_scad_nc.rds")))
+}
+
+cv_multinom_scad_nc <- readRDS(here("paper",
+                "results",
+                glue("cv_multinom_scad_nc.rds")))
+
+plot(cv_multinom_scad_nc)
+
+       
+# selected variables for event 1.
+coefs_1_scad_nc <- cv_multinom_scad_nc$fit.min$coefficients[,1]
+
+# selected variables for event 1.
+select_coef_cbscrip_scad_nc <- coefs_1_scad_nc[!same(coefs_1_scad_nc, 0)]
+# select_coef_cbscrip_scad <- cv_multinom_scad_nc$fit.min$coefficients[!same(cv_multinom_scad_nc$fit.min$coefficients[,1], 0) ,1]
+
+select_coef_cbscrip_scad_nc
+## Number of non zero variables
+sum(!same(select_coef_cbscrip_scad_nc, 0)) - 2
+
+```
+
+
+## Cause-specific Cox models with Elastic-net
+
+```{r}
+
+y <- Surv(time = train$time, 
+          event = as.numeric(train$event == 1))
+
+x <- model.matrix(event ~ . -time,
+                  data = train[,-(3:7), , drop = FALSE])
+
+set.seed(1234)
+cox_enet_mod_nc <- cv.glmnet(x = x, y = y, family = "cox",
+                          # family = "binomial",
+                           nfolds = 5,
+                          alpha = 0.7)
+
+plot(cox_enet_mod_nc)
+
+
+cc_enet_min_nc <- coef(cox_enet_mod_nc, s = cox_enet_mod_nc$lambda.min)
+
+select_vars_enet_nc <- cc_enet_min_nc@Dimnames[[1]][-1][cc_enet_min_nc@i]
+
+selected_coefs_enet_nc <- cc_enet_min_nc@x
+
+names(selected_coefs_enet_nc) <- select_vars_enet_nc
+
+selected_coefs_enet_nc
+
+length(selected_coefs_enet_nc)
+```
+
+## Cause-specific Cox models with LASSO
+
+```{r}
+y <- Surv(time = train$time, 
+          event = as.numeric(train$event == 1))
+x <- model.matrix(event ~ . -time,
+                  data = train[,-(3:7), , drop = FALSE])
+
+set.seed(1234)
+cox_lasso_mod_nc <- cv.glmnet(x = x, y = y, family = "cox",
+                     # family = "binomial",
+                     nfolds = 5,
+                     thresh = 1e-9,
+                     maxit = 1e9,
+                     alpha = 1)
+
+plot(cox_lasso_mod_nc)
+
+cc_lasso_min_nc <- coef(cox_lasso_mod_nc, s = cox_lasso_mod$lambda.min)
+
+select_vars_lasso_nc <- cc_lasso_min_nc@Dimnames[[1]][-1][cc_lasso_min_nc@i]
+
+selected_coefs_lasso_nc <- cc_lasso_min_nc@x
+
+names(selected_coefs_lasso_nc) <- select_vars_lasso_nc
+
+selected_coefs_lasso_nc
+
+length(selected_coefs_lasso_nc)
+
+```
+
+## Summary
+
+```{r}
+# No penalizar variables clínicas. 
+
+cbscrip_enet_coefs_nc <- select_coef_cbscrip_enet_nc[!(names(select_coef_cbscrip_enet_nc) %in%
+                                            c("(Intercept)",
+                                              "log(time)"))]
+cbscrip_scad_coefs_nc <- select_coef_cbscrip_scad_nc[!(names(select_coef_cbscrip_scad_nc) %in%
+                                            c("(Intercept)",
+                                              "log(time)"))]
+
+tibble(vars = names(selected_coefs_lasso_nc),
+                      lasso = selected_coefs_lasso_nc) %>% 
+    full_join(tibble(vars = names(selected_coefs_enet_nc),
+                      enet = selected_coefs_enet_nc),
+              by = join_by(vars))  %>% 
+    full_join(tibble(vars = names(cbscrip_enet_coefs_nc),
+                      cbscrip_enet = cbscrip_enet_coefs_nc),
+              by = join_by(vars))  %>% 
+    full_join(tibble(vars = names(cbscrip_scad_coefs_nc),
+                      cbscrip_scad = cbscrip_scad_coefs_nc),
+              by = join_by(vars)) %>% 
+      kbl()
+    
+```
+
+
+# Analysis with Subset Proteins
+
+## Multinomial Elastic-net Case-Base Model 
+```{r}
+
+# Perform cross-validation on the training data
+variables_to_select <- c(
+  "SEQ1014", "SEQ1038", "SEQ1082", "SEQ1111", "SEQ1164", "SEQ1197",
+  "SEQ1225", "SEQ1226", "SEQ1262", "SEQ1330", "SEQ1381", "SEQ1384",
+  "SEQ162", "SEQ164", "SEQ183", "SEQ213", "SEQ240", "SEQ251",
+  "SEQ265", "SEQ279", "SEQ287", "SEQ34", "SEQ347", "SEQ370",
+  "SEQ377", "SEQ410", "SEQ424", "SEQ634", "SEQ681", "SEQ785",
+  "SEQ813", "SEQ820", "SEQ833", "SEQ940", "SEQ972", "SEQ973"
+)
+
+
+variables_to_select <- make_clean_names(variables_to_select)
+
+
+if(save){
+    
+    set.seed(1234)
+    cv_multinom_enet_sp <- cv_cbSCRIP(
+        Surv(time, event) ~ .,
+        train[,c("time", "event", variables_to_select), , drop = FALSE],
+        alpha = 0.7,
+        nfold = 5,
+        nlambda = 50,
+        fit_fun = fit_fun,
+        ratio = 20)
+    
+    plot(cv_multinom_enet_sp)
+    
+    saveRDS(cv_multinom_enet_sp, here("paper",
+                 "results",
+                 glue("cv_multinom_enet_sp.rds")))
+    
+}
+
+
+cv_multinom_enet_sp <- readRDS(here("paper",
+                                 "results",
+                                 glue("cv_multinom_enet_sp.rds")))
+
+
+plot(cv_multinom_enet_sp)
+
+cv_multinom_enet_sp$fit.min$coefficients_sparse
+
+## Number of non zero parameters (both cases)
+sum(!same(cv_multinom_enet_sp$fit.min$coefficients_sparse, 0))
+
+coefs_1_sp <- cv_multinom_enet_sp$fit.min$coefficients[,1]
+
+# selected variables for event 1.
+select_coef_cbscrip_enet_sp <- coefs_1_sp[!same(coefs_1_sp, 0)]
+# select_coef_cbscrip_enet <- cv_multinom_enet_sp$fit.min$coefficients[!same(cv_multinom_enet_sp$fit.min$coefficients[,1], 0) ,1]
+
+
+## Number of non zero variables (case 1)
+length(select_coef_cbscrip_enet_sp) - 2
+
+select_coef_cbscrip_enet_sp
+
+```
+
+## Multinomial SCAD Case-Base Model 
+```{r}
+
+# Perform cross-validation on the training data
+if(save){
+    
+    set.seed(1234)
+    cv_multinom_scad_sp <- cv_cbSCRIP(
+        Surv(time, event) ~ .,
+        train[,c("time", "event", variables_to_select), , drop = FALSE],
+        nfold = 5,
+        nlambda = 50,
+        fit_fun = fit_fun,
+        regularization = "SCAD")
+    
+    plot(cv_multinom_scad_sp)
+    
+       saveRDS(cv_multinom_scad_sp,
+            here("paper",
+                "results",
+                glue("cv_multinom_scad_sp.rds")))
+}
+
+cv_multinom_scad_sp <- readRDS(here("paper",
+                "results",
+                glue("cv_multinom_scad_sp.rds")))
+
+plot(cv_multinom_scad_sp)
+
+cv_multinom_scad_sp$fit.min$coefficients
+
+# selected variables for event 1.
+coefs_1_scad_sp <- cv_multinom_scad_sp$fit.min$coefficients[,1]
+
+# selected variables for event 1.
+select_coef_cbscrip_scad_sp <- coefs_1_scad_sp[!same(coefs_1_scad_sp, 0)]
+# select_coef_cbscrip_scad <- cv_multinom_scad_sp$fit.min$coefficients[!same(cv_multinom_scad_sp$fit.min$coefficients[,1], 0) ,1]
+
+select_coef_cbscrip_scad_sp
+## Number of non zero variables
+sum(!same(select_coef_cbscrip_scad_sp, 0)) - 2
+
+```
+
+
+## Cause-specific Cox models with Elastic-net
+
+```{r}
+
+y <- Surv(time = train$time, 
+          event = as.numeric(train$event == 1))
+
+x <- model.matrix(event ~ . -time,
+                  data = train[,c("time", "event", variables_to_select), ,
+                              drop = FALSE])
+
+set.seed(1234)
+cox_enet_mod_sp <- cv.glmnet(x = x, y = y, family = "cox",
+                          # family = "binomial",
+                           nfolds = 5,
+                          alpha = 0.7)
+
+plot(cox_enet_mod_sp)
+
+
+cc_enet_min_sp <- coef(cox_enet_mod_sp, s = cox_enet_mod_sp$lambda.min)
+
+select_vars_enet_sp <- cc_enet_min_sp@Dimnames[[1]][-1][cc_enet_min_sp@i]
+
+selected_coefs_enet_sp <- cc_enet_min_sp@x
+
+names(selected_coefs_enet_sp) <- select_vars_enet_sp
+
+selected_coefs_enet_sp
+
+length(selected_coefs_enet_sp)
+```
+
+## Cause-specific Cox models with LASSO
+
+```{r}
+y <- Surv(time = train$time, 
+          event = as.numeric(train$event == 1))
+x <- model.matrix(event ~ . -time,
+                  data = train[,c("time", "event", variables_to_select), ,
+                              drop = FALSE])
+
+set.seed(1234)
+cox_lasso_mod_sp <- cv.glmnet(x = x, y = y, family = "cox",
+                     # family = "binomial",
+                     nfolds = 5,
+                     thresh = 1e-9,
+                     maxit = 1e9,
+                     alpha = 1)
+
+plot(cox_lasso_mod_sp)
+
+cc_lasso_min_sp <- coef(cox_lasso_mod_sp, s = cox_lasso_mod_sp$lambda.min)
+
+select_vars_lasso_sp <- cc_lasso_min_sp@Dimnames[[1]][-1][cc_lasso_min_sp@i]
+
+selected_coefs_lasso_sp <- cc_lasso_min_sp@x
+
+names(selected_coefs_lasso_sp) <- select_vars_lasso_sp
+
+selected_coefs_lasso_sp
+
+length(selected_coefs_lasso_sp)
+
+```
+
+## Summary
+```{r}
+# No penalizar variables clínicas. 
+
+cbscrip_enet_coefs_sp <- select_coef_cbscrip_enet_sp[!(names(select_coef_cbscrip_enet_sp) %in%
+                                            c("(Intercept)",
+                                              "log(time)"))]
+cbscrip_scad_coefs_sp <- select_coef_cbscrip_scad_sp[!(names(select_coef_cbscrip_scad_sp) %in%
+                                            c("(Intercept)",
+                                              "log(time)"))]
+
+tibble(vars = names(selected_coefs_lasso_sp),
+                      lasso = selected_coefs_lasso_sp) %>% 
+    full_join(tibble(vars = names(selected_coefs_enet_sp),
+                      enet = selected_coefs_enet_sp),
+              by = join_by(vars))  %>% 
+    full_join(tibble(vars = names(cbscrip_enet_coefs_sp),
+                      cbscrip_enet = cbscrip_enet_coefs_sp),
+              by = join_by(vars))  %>% 
+    full_join(tibble(vars = names(cbscrip_scad_coefs_sp),
+                      cbscrip_scad = cbscrip_scad_coefs_sp),
+              by = join_by(vars)) %>% 
+      kbl()
+    
+```
+
+
+# Analysis Top Variables
+
+## Multinomial Elastic-net Case-Base Model 
+```{r}
+
+# Perform cross-validation on the training data
+
+if(save){
+    
+     fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
+                                   niter_inner_mtplyr = 0.5,
+                                   maxit = 250,
+                                   c_factor = 8000,
+                                   v_factor = 500,
+                                   tolerance = 1e-4,
+                                   save_history = F,
+                                   verbose = F)
+    
+    set.seed(1234)
+    cv_multinom_enet_top <- cbSCRIP(
+        Surv(time, event) ~ .,
+        train,
+        alpha = 0.7,
+        # nlambda = 50,
+        lambda = 0.03,
+        fit_fun = fit_fun)
+    
+    plot(cv_multinom_enet_top)
+    
+    saveRDS(cv_multinom_enet_top, here("paper",
+                 "results",
+                 glue("cv_multinom_enet_top.rds")))
+    
+}
+
+
+cv_multinom_enet_top <- readRDS(here("paper",
+                                 "results",
+                                 glue("cv_multinom_enet_top.rds")))
+
+
+non_cero_top_enet <- map(cv_multinom_enet_top$models_info, 
+                         ~ sum(!same(.x$coefficients[,1], 0)))
+
+top_50_cbscrip_enet <-  which.min(abs(map_int(non_cero_top_enet, ~.x)-30))
+
+coeffs_top_50_cbscrip_enet <- cv_multinom_enet_top$models_info[[top_50_cbscrip_enet]]$coefficients[,1]
+
+# selected variables for event 1.
+select_coef_cbscrip_enet_top <- coeffs_top_50_cbscrip_enet[!same(coeffs_top_50_cbscrip_enet, 0)]
+
+## Number of non zero variables
+length(select_coef_cbscrip_enet_top) - 2
+select_coef_cbscrip_enet_top
+
+```
+
+## Multinomial SCAD Case-Base Model 
+```{r}
+
+# Perform cross-validation on the training data
+if(save){
+    
+    set.seed(1234)
+    cv_multinom_scad_top <- cbSCRIP(
+        Surv(time, event) ~ .,
+        train[,-(3:7), , drop = FALSE],
+        nlambda = 50,
+        fit_fun = fit_fun,
+        regularization = "SCAD"
+    )
+    
+    
+       saveRDS(cv_multinom_scad_top,
+            here("paper",
+                "results",
+                glue("cv_multinom_scad_top.rds")))
+}
+
+cv_multinom_scad_top <- readRDS(here("paper",
+                "results",
+                glue("cv_multinom_scad_top.rds")))
+
+non_cero_top_scad <- map(cv_multinom_scad_top$models_info, 
+                         ~ sum(!same(.x$coefficients[,1], 0)))
+
+top_50_cbscrip_scad <-  which.min(abs(map_int(non_cero_top_scad, ~.x)-30))
+
+coeffs_top_50_cbscrip_scad <- cv_multinom_scad_top$models_info[[top_50_cbscrip_scad]]$coefficients[,1]
+
+# selected variables for event 1.
+select_coef_cbscrip_scad_top <- coeffs_top_50_cbscrip_scad[!same(coeffs_top_50_cbscrip_scad, 0)]
+
+## Number of non zero variables
+length(select_coef_cbscrip_scad_top) - 2
+select_coef_cbscrip_scad_top
+
+```
+
+
+## Cause-specific Cox models with Elastic-net
+
+```{r}
+y <- Surv(time = train$time, 
+          event = as.numeric(train$event == 1))
+
+x <- model.matrix(event ~ . -time,
+                  data = train[,-(3:7), , drop = FALSE])
+
+set.seed(1234)
+cox_enet_mod_top <- glmnet(x = x, y = y, family = "cox",
+                          # family = "binomial",
+                           nfolds = 5,
+                          alpha = 0.7)
+
+plot(cox_enet_mod_top)
+
+grid <- cox_enet_mod_top$lambda
+
+
+non_zero_enet <- map_dbl(grid,
+                     ~sum(!same(coef(cox_enet_mod_top, s = .x), 0)))
+
+cc_enet_min_top <- coef(cox_enet_mod_top, s = grid[which.min(abs(non_zero_enet-30))])
+
+select_vars_enet_top <- cc_enet_min_top@Dimnames[[1]][-1][cc_enet_min_top@i]
+
+selected_coefs_enet_top <- cc_enet_min_top@x
+
+names(selected_coefs_enet_top) <- select_vars_enet_top
+
+selected_coefs_enet_top
+
+length(selected_coefs_enet_top)
+```
+
+## Cause-specific Cox models with LASSO
+
+```{r}
+y <- Surv(time = train$time, 
+          event = as.numeric(train$event == 1))
+
+x <- model.matrix(event ~ . -time,
+                  data = train[,-(3:7), , drop = FALSE])
+
+set.seed(1234)
+cox_lasso_mod_top <- glmnet(x = x, y = y, family = "cox",
+                          # family = "binomial",
+                           nfolds = 5,
+                          alpha = 1)
+
+grid <- cox_lasso_mod_top$lambda
+
+
+non_zero_lasso <- map_dbl(grid,
+                     ~sum(!same(coef(cox_lasso_mod_top, s = .x), 0)))
+
+cc_lasso_min_top <- coef(cox_lasso_mod_top, s = grid[which.min(abs(non_zero_lasso-30))])
+
+select_vars_lasso_top <- cc_lasso_min_top@Dimnames[[1]][-1][cc_lasso_min_top@i]
+
+selected_coefs_lasso_top <- cc_lasso_min_top@x
+
+names(selected_coefs_lasso_top) <- select_vars_lasso_top
+
+selected_coefs_lasso_top
+
+length(selected_coefs_lasso_top)
+```
+
+## Summary
+
+```{r}
+# No penalizar variables clínicas. 
+
+cbscrip_enet_coefs_top <- select_coef_cbscrip_enet_top[!(names(select_coef_cbscrip_enet_top) %in%
+                                            c("(Intercept)",
+                                              "log(time)"))]
+cbscrip_scad_coefs_top <- select_coef_cbscrip_scad_top[!(names(select_coef_cbscrip_scad_top) %in%
+                                            c("(Intercept)",
+                                              "log(time)"))]
+
+tibble(vars = names(cbscrip_enet_coefs_top),
+       cbscrip_enet = cbscrip_enet_coefs_top) %>% 
+    full_join(tibble(vars = names(cbscrip_scad_coefs_top),
+                     cbscrip_scad = cbscrip_scad_coefs_top),
+              by = join_by(vars)) %>% 
+    full_join(tibble(vars = names(selected_coefs_lasso_top),
+                     lasso = selected_coefs_lasso_top),
+              by = join_by(vars))  %>% 
+    full_join(tibble(vars = names(selected_coefs_enet_top),
+                     enet = selected_coefs_enet_top),
+              by = join_by(vars)) %>% 
+      kbl()
 
 ```
 

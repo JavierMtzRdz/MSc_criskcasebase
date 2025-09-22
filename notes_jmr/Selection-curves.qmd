@@ -163,7 +163,7 @@ data_proj <- name_model %>%
 
 ```
 
-# Simulations
+# Simulations {.unnumbered}
 
 ```{r}
 #| echo: false
@@ -199,20 +199,9 @@ select_mod <- readRDS(here("paper", "results", "select_mod.rds")) %>%
 #| warning: false
 #| include: false
 
-select_mod %>% 
-    filter(p == 120, k == 20) %>% 
-<<<<<<< HEAD
-    filter(sim == 10,
-           setting == 1) %>% 
-    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
-               color = model)) +
-    geom_path() +
-    coord_equal()
 
 select_mod %>% 
     filter(p == 1000, k == 168) %>% 
-=======
->>>>>>> cb962c361bebc2d0cf8d8c249858a6584a0e0f3c
     filter(sim == 1,
            setting == 1) %>% 
     ggplot(aes(x = 1 - Specificity, y = Sensitivity,
@@ -221,6 +210,10 @@ select_mod %>%
     coord_equal()
 
 select_mod %>% 
+    group_by(model_size, p, k, setting, model, sim, dim) %>% 
+    summarise(Sensitivity = mean(Sensitivity),
+              Specificity = mean(Specificity)) %>% 
+    ungroup() %>% 
       filter(p == 1000, k == 168) %>% 
         filter(sim == 15,
            setting == 1) %>% 
@@ -242,34 +235,63 @@ select_mod %>%
     arrange(p, model_size) %>% 
     ggplot(aes(x = 1 - Specificity, y = Sensitivity,
                color = model)) +
-<<<<<<< HEAD
     geom_smooth(size = 0.5,
                 se = FALSE) +
-=======
-    geom_smooth(size = 0.5, se = FALSE) +
->>>>>>> cb962c361bebc2d0cf8d8c249858a6584a0e0f3c
     facet_grid(paste0("Setting ", setting) ~fct_inorder(dim)) +
-    coord_equal()
+    coord_equal() +
+    ylim(-0.01,1.01)
 
 
 sum_selec <- select_mod %>% 
-    # filter(sim <=15) %>%
-    group_by(model, setting, dim, p, k, model_size) %>% 
+    # filter(sim <= 2) %>%
+    group_by(model, setting, dim, sim, p, k, model_size) %>% 
     summarise(n_models = n(),
-              across(Sensitivity:MCC, mean))
+              across(Sensitivity:MCC, mean)) %>% 
+    group_by(model, setting, dim, sim, p, k) %>% 
+    group_split() %>%
+    map_df(\(y){
+               y %>% 
+        full_join(tibble(model_size = 1:max(y$p)), 
+                  by = join_by(model_size)) %>% 
+        arrange(model_size) %>% 
+        mutate(across(c(Sensitivity, Specificity, MCC), 
+                      \(x){zoo::na.approx(x,
+                                          model_size,
+                                          na.rm = F)}),
+               across(c(model, setting, dim, sim, p, k),
+                      \(x){first(na.omit(x))})) 
+           })
 
 sum_selec %>% 
-    filter(#setting == 1,
-           model_size %% 10 == 0) %>% 
+    # filter(sim <= 2,
+    #        setting == 1) %>% 
+     # filter(p == 1000, k == 168) %>% 
+    ungroup() %>% 
+     group_by(model_size, p, k, setting, model, dim) %>%
+    summarise(Sensitivity = mean(Sensitivity, na.rm = T),
+              Specificity = mean(Specificity, na.rm = T)) %>%
+    arrange(p, model_size) %>%  
+    ggplot(aes(x = model_size, y = Sensitivity,
+               color = model)) +
+    geom_path() +
+    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim)) +
+    # coord_equal() +
+    ylim(-0.01,1.01)
+    
+
+sum_selec %>% 
+    # filter(#setting == 1,
+    #        model_size %% 10 == 0) %>% 
+    group_by(model_size, p, k, setting, model, dim) %>% 
+    summarise(Sensitivity = mean(Sensitivity),
+              Specificity = mean(Specificity)) %>% 
     arrange(p, model_size) %>% 
     ggplot(aes(x = 1 - Specificity, y = Sensitivity,
                color = model)) +
     geom_path() +
     facet_grid(paste0("Setting ", setting) ~fct_inorder(dim)) +
-    coord_equal()
-    
-    
-    
+    coord_equal() +
+    ylim(-0.01,1.01)
 
 ```
 
@@ -289,7 +311,8 @@ select_mod %>%
                   size = 0.5,
                 se = FALSE) +
     facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
-               scale = "free_x") 
+               scale = "free_x") +
+    ylim(-0.01,1.01)
 
 select_mod %>% 
         arrange(p, model_size) %>% 
@@ -301,7 +324,8 @@ select_mod %>%
                   size = 0.5,
                 se = FALSE) +
     facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
-               scale = "free_x") 
+               scale = "free_x") +
+    ylim(-0.01,1.01)
 
 select_mod %>% 
         arrange(p, model_size) %>% 
@@ -349,6 +373,35 @@ select_mod %>%
 #                scale = "free_x") 
 
 ```
+
+## AUC {.unnumbered}
+
+```{r}
+remotes::install_github("dariyasydykova/tidyroc")
+pacman::p_load(tidyroc)
+
+select_mod %>% 
+    # filter(p == 1000, k == 168) %>% 
+    #     filter(sim == 15,
+    #        setting == 1,
+    #        model == "SCAD-casebase") %>% 
+    group_by(model, setting, dim, p, k, sim) %>%
+    summarise(auc = calc_auc((1-Specificity), Sensitivity)) %>% 
+    ggplot(aes(model, auc,
+               color = model)) +
+    geom_boxplot(fill = "transparent") +
+    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
+               scale = "free_x") +
+    ylim(-0.01,1.01)
+
+```
+
+
+
+
+
+
+
 
 
 # References

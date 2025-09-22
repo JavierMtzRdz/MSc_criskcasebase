@@ -30,29 +30,47 @@ pacman::p_load(casebase,
                caret,
                pec,
                purrr,
-               glue)
+               glue,
+               cbSCRIP)
+
+library(future)
+library(furrr)
+library(progressr)
 
 # Fitting functions 
-source(here("paper",
+source(here("notes_jmr",
             "code", "fitting_functionsV2.R"))
-
-if(!exists("start_sims")) start_sims <- 1
+source(here("notes_jmr",
+            "code", "fitting_functionsV3.R"))
 
 n_lambda <- 50
 
-
-for (i in start_sims:sims) {
+# for (i in start_sims:sims) {
     
-    data <- gen_data(n = n, 
-                     p = p, 
-                     num_true = num_true,
-                     setting = setting,
-                     iter = i, 
-                     sims = sims)
-    beta1 <- data$beta1
-    beta2 <- data$beta2
-    train <- data$train
-    test <- data$test
+n <- 400          # Number of samples
+
+args <- commandArgs(trailingOnly = TRUE)
+
+p <- as.numeric(args[1])
+
+num_true <- as.integer(args[2])
+
+setting <- as.numeric(args[3])
+
+i <- as.numeric(args[4])
+
+rm(args)
+
+data <- gen_data(n = n, 
+                 p = p, 
+                 num_true = num_true,
+                 setting = setting,
+                 iter = i)
+
+beta1 <- data$beta1
+beta2 <- data$beta2
+train <- data$train
+test <- data$test
     
     # Fit indepedent cox-regression model
     # Cause-1
@@ -67,90 +85,212 @@ for (i in start_sims:sims) {
     x_test <- model.matrix(~ . -ftime -fstatus, data = test)[, -1]
     
     # Fit cause-specific cox model with glmnet on training set
-    cox_mod <- glmnet(x = x_train, y = y_train, family = "cox", alpha = 0.7,
-                      lambda.min.ratio = 0,
-                      nlambda = n_lambda)
+    tic("cox_mod")
+    cox_mod <- glmnet(x = x_train, y = y_train, family = "cox", alpha = 0.5,
+                      lambda.min.ratio = ifelse(length(y_test) < ncol(x_test), 
+                                                0, 0.001),
+                      nlambda = 50)
+    toc()
+    
+    
+    cox_mod0 <- glmnet(x = x_train, y = y_train, family = "cox", alpha = 0.5,
+                      lambda = 0)
+    
 
-
+    
     table_result_cox <- map_df(cox_mod$lambda,
                                \(x){as_tibble(varsel_perc(coef(cox_mod, s = x),
-                                                      beta1),
-                                          lambda = x) %>%
-                                       mutate(mse_bias = mse_bias(coef(cox_mod, s = x), beta1))}) %>%
+                                                      beta1)) %>%
+                                       mutate(mse_bias = mse_bias(coef(cox_mod, s = x), beta1),
+                                              lambda = x,
+                                              params = list(coef(cox_mod, s = x)))}) %>% 
+        bind_rows(as_tibble(varsel_perc(coef(cox_mod0, s = 0),
+                                        beta1)) %>%
+                      mutate(mse_bias = mse_bias(coef(cox_mod0, s = 0), beta1),
+                             lambda = 0,
+                             params = list(coef(cox_mod0, s = 0)))) %>% 
         mutate(model = "enet-CR",
-               sim = i)
+               sim = i,
+               model_size = TP + FP)
+    
+    
+    table_result_cox %>%
+        ggplot(aes(x = 1 - Specificity, y = Sensitivity)) +
+        geom_path() +
+        coord_equal()
 
-    # casebase
+    
+    # casebase ----
+    if(p <500){
+        fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
+                                  niter_inner_mtplyr = 1.5,
+                                  maxit = 250,
+                                  c_factor =500000,
+                                  v_factor = 100000,
+                                  tolerance = 1e-3,
+                                  save_history = F,
+                                  verbose = F)
+    } else if(p <700){
+    fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
+                               niter_inner_mtplyr = 1,
+                               maxit = 250,
+                               c_factor = 100000,
+                               v_factor = 500,
+                               tolerance = 1e-3,
+                               save_history = F,
+                               verbose = F)
+    }else if(p > 700){
+        fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
+                                   niter_inner_mtplyr = 0.5,
+                                   maxit = 250,
+                                   c_factor = 2000,
+                                   v_factor = 5000,
+                                   tolerance = 1e-3,
+                                   save_history = F,
+                                   verbose = F)
+    }
 
-    mtool_cv <- purrr::partial(mtool::mtool.MNlogisticAcc,
-                               niter_inner_mtplyr = 1.5,
-                               maxit = 100,
-                               momentum_gamma = 0,
-                               tolerance = 1e-8,
-                               learning_rate = 1e-4
-    )
-
+    
+    # fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
+    #                           niter_inner_mtplyr = 1.5,
+    #                           maxit = 500,
+    #                           c_factor =1000000,
+    #                           v_factor = 500000,
+    #                           tolerance = 1e-3,
+    #                           save_history = F,
+    #                           verbose = F)
+    # 
+    # fit_fun <- purrr::partial(cbSCRIP::MNlogistic,
+    #                           niter_inner_mtplyr = 2,
+    #                           maxit = 200,
+    #                           tolerance = 1e-4,
+    #                           learning_rate = 1e-4,
+    #                           verbose = F,
+    #                           save_history = F)   
+    
     tic("cv.lambdaAcc")
-    cv.lambdaAcc <- mtool.multinom(train, seed = 1, alpha = 0.7,
-                                   fit_fun = mtool_cv,
-                                   ncores = 2,
-                                   # train_ratio = 5,
-                                   # lambda_max = 0.5,
-                                   # ws = F,
-                                   grid_size = n_lambda
-    )
+    set.seed(123)
+    cv.lambdaAcc <- cbSCRIP(Surv(ftime, fstatus) ~ .,
+                            train,
+                            nlambda = 50,
+                            alpha = 0.5,
+                            warm_start = F,
+                            fit_fun = fit_fun,
+                            ratio = 50)
     toc()
-
-    # plot_cv.multinom(cv.lambdaAcc)
-
-
-    table_result_cb <-map_df(cv.lambdaAcc$lambdagrid,
-                                \(x){as_tibble(varsel_perc(cv.lambdaAcc$cov_coeffs[[as.character(x)]][,1],
-                                                           beta1),
-                                               lambda = x) %>%
-                                        mutate(mse_bias = mse_bias(cv.lambdaAcc$cov_coeffs[[as.character(x)]][,1], beta1))}) %>%
+    
+    table_result_cb <- map_df(seq_along(cv.lambdaAcc$lambdagrid),
+                              \(x){
+                                  as_tibble(varsel_perc(cv.lambdaAcc$coefficients[[x]][,1],
+                                                        beta1)) %>%
+                                      mutate(mse_bias = mse_bias(cv.lambdaAcc$coefficients[[x]][,1], beta1),
+                                             lambda = cv.lambdaAcc$lambdagrid[x],
+                                             params = list(cv.lambdaAcc$coefficients[[x]][,1]))}) %>%
         mutate(model = "enet-casebase-Acc",
-               sim = i)
+               sim = i,
+               model_size = TP + FP)
+    
+    table_select <- as_tibble(rbind(table_result_cox,
+                                    table_result_cb
+                                    # table_result_SCAD
+    ))
+    
+    (plot <- table_select %>%
+            ggplot(aes(x = 1 - Specificity, y = Sensitivity,
+                       color = model,
+                       linetype = model)) +
+            geom_path() +
+            coord_equal())
+    
+ # X_t <- model.matrix(~., 
+    #                     data = data.frame(cbind(cv.lambdaAcc$cb_data$covariates, 
+    #                                             time = log(cv.lambdaAcc$cb_data$time))))
+    # 
+    # X_t <- cbind(X_t[,-1], X_t[,1])
+    # 
+    # p.fac <- rep(1, ncol(X_t))
+    # # p.fac[(1388+1-pen_last):1388] <- 0
+    # 
+    # cv.lambdaAcc$models_info[[1]]$convergence_pass
+    # cv.lambdaAcc$models_info[[1]]$coefficients_sparse
+    # loss <- map_vec(cv.lambdaAcc$models_info[[1]]$coefficients_history,
+    #                 ~calculate_penalized_multinomial_loss(
+    #                     .x,
+    #                     alpha = 0.5,
+    #                     lambda = 0.01,
+    #                     Y = cv.lambdaAcc$cb_data$event,
+    #                     X = X_t,
+    #                     offset = cv.lambdaAcc$cb_data$offset,
+    #                     penalty_weights = p.fac))
+    # 
+    # if(min(loss) < min_loss) min_loss <- min(loss)
+    # 
+    # tibble(iter = 1:length(loss),
+    #        loss = loss) %>% 
+    #     mutate(loss_diff = loss - min_loss) %>% 
+    #     ggplot(aes(x = iter, y = loss_diff)) +
+    #     geom_line() +
+    #     scale_y_log10() +
+    #     labs(y = "F(x)-F(x*)")
+    
+    
+    
+    plot(cv.lambdaAcc) +
+        geom_vline(xintercept = cv.lambdaAcc$lambdagrid,
+                   alpha = 0.5)
+    
+    # table_result_cb <- map_df(cv.lambdaAcc$lambdagrid,
+    #                             \(x){
+    #                                 as_tibble(varsel_perc(cv.lambdaAcc$coefficients[[as.character(x)]][,1],
+    #                                                        beta1)) %>%
+    #                                     mutate(mse_bias = mse_bias(cv.lambdaAcc$coefficients[[as.character(x)]][,1], beta1),
+    #                                            lambda = x,
+    #                                            params = list(cv.lambdaAcc$coefficients[[as.character(x)]][,1]))}) %>%
+    #     mutate(model = "enet-casebase-Acc",
+    #            sim = i,
+    #            model_size = TP + FP)
 
     table_result_cb %>%
-        ggplot(aes(x = 1 - Specificity, y = Sensitivity)) +
+        ggplot(aes(x = model_size, y = Sensitivity)) +
+        geom_path() 
+    
+    table_result_cb %>%
+        ggplot(aes(x = 1- Specificity, y = Sensitivity)) +
         geom_path() +
         coord_equal()
     
     
     # SCAD -----
-    mtool_cv <- purrr::partial(mtool::mtool.MNlogisticAcc,
-                               niter_inner_mtplyr = 1.5,
-                               maxit = 100,
-                               momentum_gamma = 0,
-                               tolerance = 1e-8,
-                               learning_rate = 1e-4
-    )
-    tic("cv.lambdaSCAD")
-    cv.lambdaSCAD <- mtool.multinom(train, seed = 1, 
-                                    fit_fun = mtool_cv,
-                                    grid_size = n_lambda,
-                                    regularization = "SCAD",
-                                    ncores = 2,
-                                    train_ratio = 5
-    )
-    toc()
-    
-    table_result_SCAD <- map_df(cv.lambdaSCAD$lambdagrid,
-                                \(x){as_tibble(varsel_perc(cv.lambdaSCAD$cov_coeffs[[as.character(x)]][,1],
-                                                       beta1),
-                                           lambda = x) %>% 
-                                        mutate(mse_bias = mse_bias(cv.lambdaSCAD$cov_coeffs[[as.character(x)]][,1], beta1))}) %>% 
-        mutate(model = "SCAD-casebase",
-               sim = i)
-    
-    table_result_SCAD %>%
-        ggplot(aes(x = 1 - Specificity, y = Sensitivity)) +
-        geom_path() +
-        coord_equal()
-    
-    
-    
+  
+    # tic("cv.lambdaSCAD")
+    # cv.lambdaSCAD <- cbSCRIP(Surv(ftime, fstatus) ~ .,
+    #                         train,
+    #                         lambda.min.ratio = 0.01,
+    #                         nlambda = 50,
+    #                         warm_start = T,
+    #                         regularization = "SCAD",
+    #                         fit_fun = fit_fun)
+    # toc()
+    # cv.lambdaSCAD$lambdagrid
+    # plot(cv.lambdaSCAD) +
+    #     geom_vline(xintercept = cv.lambdaSCAD$lambdagrid)
+    # # plot_cv.multinom(cv.lambdaSCAD)
+    # 
+    # table_result_SCAD <- map_df(cv.lambdaSCAD$lambdagrid,
+    #                             \(x){as_tibble(varsel_perc(cv.lambdaSCAD$coefficients[[as.character(x)]][,1],
+    #                                                    beta1)) %>%
+    #                                     mutate(mse_bias = mse_bias(cv.lambdaSCAD$coefficients[[as.character(x)]][,1], beta1),
+    #                                            lambda = x,
+    #                                            params = list(cv.lambdaSCAD$coefficients[[as.character(x)]][,1]))}) %>%
+    #     mutate(model = "SCAD-casebase",
+    #            sim = i,
+    #            model_size = TP + FP)
+    # 
+    # table_result_SCAD %>%
+    #     ggplot(aes(x = 1 - Specificity, y = Sensitivity)) +
+    #     geom_path() +
+    #     coord_equal()
+    # 
     # 
     # surv_obj_val <- with(train, Surv(ftime, as.numeric(fstatus), type = "mstate"))
     # 
@@ -158,21 +298,9 @@ for (i in start_sims:sims) {
     # cov_val <- cbind(train[, c(grepl("X", colnames(train)))], time = log(train$ftime))
     # 
     # # Case-base dataset
-    # cb_data_val <- create_cbDataset(surv_obj_val, as.matrix(cov_val))
-    # 
-    # # Case-base fits 
-    # # Lambda.min
-    # lambda <- 0.2
-    # cli::cli_alert_info("Lambda.min: {lambda}")
-    # fit_val_min_SCAD <- fit_cbmodel(cb_data_val, regularization = 'SCAD',
-    #                                lambda = lambda, #alpha = 0.7,
-    #                                unpen_cov = 2,
-    #                                fit_fun = mtool_cv)
-    # 
-    # varsel_perc(fit_val_min_SCAD$coefficients[1:eval(parse(text="p")), 1], beta1)
-    
-    
-    
+    # cb_data_val <- create_cbDataset(surv_obj_val, as.matrix(cov_val),
+    #                                 ratio = 20)
+
     
     
     
@@ -188,14 +316,26 @@ for (i in start_sims:sims) {
     #                                 table_result_SCAD))
     
     table_select <- as_tibble(rbind(table_result_cox,
-                                    table_result_cb,
-                                    table_result_SCAD))
+                                    table_result_cb
+                                    # table_result_SCAD
+                                    ))
     
-    print(table_select %>%
+    (plot <- table_select %>%
         ggplot(aes(x = 1 - Specificity, y = Sensitivity,
-                   color = model)) +
+                   color = model,
+                   linetype = model)) +
         geom_path() +
         coord_equal())
+    
+    ggsave(here("paper",
+                "results",
+                glue("models_selec-{setting}_iter-{i}_p-{p}_k-{num_true}.png")),
+           plot = plot,
+           bg = "transparent",
+           width = 200,                 # Ancho de la gráfica
+           height = 120,
+           units = "mm",
+           dpi = 300)
     
     
     saveRDS(table_select,
@@ -203,5 +343,4 @@ for (i in start_sims:sims) {
                  "results",
                  "lambda_paths",
                  glue("models_selec-{setting}_iter-{i}_p-{p}_k-{num_true}.rds")))
-    
-}
+

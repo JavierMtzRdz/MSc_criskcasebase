@@ -913,7 +913,8 @@ mtool.MNlogisticAcc <- function(X, Y, offset, N_covariates,
                                 group_id = NULL, group_weights = NULL, # etaG
                                 groups = NULL, groups_var = NULL,     # grp, grpV
                                 own_variables = NULL, N_own_variables = NULL,
-                                param_start = NULL, verbose = TRUE) {
+                                param_start = NULL, verbose = TRUE,
+                                intercept = TRUE) {
     
     nx <- nrow(X)
     if (!is.matrix(X)) X <- as.matrix(X) # Ensure X is a matrix
@@ -1012,7 +1013,8 @@ mtool.MNlogisticAcc <- function(X, Y, offset, N_covariates,
                                   ncores = as.integer(ncores),
                                   pos = as.logical(pos), 
                                   param_start = param_start,
-                                  verbose = verbose)    
+                                  verbose = verbose,
+                                  add_intercept = intercept)    
     
     if (inherits(result$`Sparse Estimates`, "sparseMatrix")) {
         nzc <- Matrix::nnzero(result$`Sparse Estimates`)
@@ -1255,51 +1257,45 @@ mtool.MNlogisticPCD <- function(X, Y, offset, N_covariates,
 mtool.MNlogisticCCD <- function(X, Y, offset, N_covariates,
                                 regularization = 'l1', transpose = FALSE,
                                 lambda1, lambda2 = 0, lambda3 = 0,
-                                learning_rate_scale = 1.0, # Changed from learning_rate
-                                tolerance = 1e-4,
-                                maxit = 100, ncores = 1, pos = FALSE, # Removed niter_inner_mtplyr, added pos
+                                learning_rate_scale = 1.0, # Not used by glmnet-style CCD
+                                tolerance = 1e-5,
+                                maxit = 100, ncores = 1, pos = FALSE,
+                                kkt_abs_check_tol = 1e-6,
+                                max_ccd_passes_active_set = 10,
                                 group_id = NULL, group_weights = NULL,
                                 groups = NULL, groups_var = NULL,
                                 own_variables = NULL, N_own_variables = NULL) {
     
     ## --- Dimensions and checks ---
     if (!is.matrix(X)) X <- as.matrix(X)
-    nx <- nrow(X) # n_obs
+    if (!is.vector(Y)) Y <- as.vector(Y)
+    if (!is.vector(offset)) offset <- as.vector(offset)
     
-    if (!is.vector(Y)) {Y <- as.vector(Y)}
-    ny <- length(Y)
-    
-    if (!is.vector(offset)) {offset <- as.vector(offset)}
-    noff <- length(offset)
-    
-    if (nx == ny && nx == noff) {
-        n_obs <- nx
-    } else {
+    if (nrow(X) != length(Y) || nrow(X) != length(offset)) {
         stop('X, Y and offset have different number of observations.')
     }
-    
+    n_obs <- nrow(X)
     p_total <- ncol(X)
     
-    # Corrected K Calculation
-    valid_Y_values <- Y[!is.na(Y) & Y > 0]
-    if (length(valid_Y_values) == 0) {
-        stop("Y does not contain any valid positive class labels (expected 1 to K).")
-    }
-    unique_classes <- unique(valid_Y_values)
-    K_val <- length(unique_classes) # Number of distinct event classes
-    # Assuming Y contains labels 1...K_val. C++ grad_multinom_loss2 uses y_idx = y-1.
-    # So K_val passed as K_classes to C++ is correct for matrix dimensions.
-    if (K_val > 0 && !all(sort(unique_classes) == 1:K_val)) {
-        warning(paste("Classes in Y are:", paste(sort(unique_classes), collapse=", "),
-                      ". K_classes is set to", K_val,
-                      ". Ensure C++ handles these Y values (e.g. if not 1 to K_val consecutive)."))
-    }
-    if (K_val == 0) stop("Could not determine number of classes K from Y.")
+    ## --- Robust Handling of Class Labels (Y) ---
+    # Convert Y to a factor to handle any type of label (numeric, character, etc.)
+    # and map it to zero-based integers for C++.
+    if (!is.factor(Y)) Y_factor <- factor(Y)
+    else Y_factor <- Y
     
+    Y_cpp <- as.integer(Y_factor) - 1 # C++ expects 0 to K-1
+    K_classes <- nlevels(Y_factor)
+    
+    if (K_classes <= 1) {
+        stop("The response variable Y must have at least 2 unique classes.")
+    }
+    
+    message(paste("Detected", K_classes, "classes. Using '", levels(Y_factor)[1], "' as the reference class (level 0).", sep=""))
     
     ## --- Regularization setup ---
-    pen1_types <- c("l0", "l1", "l2", "linf", "l2-not-squared",
-                    "elastic-net", "fused-lasso",
+    # This section maps the string to a code, which is useful if the C++
+    # backend handles multiple penalty families. The current CCD implements elastic net.
+    pen1_types <- c("l0", "l1", "l2", "linf", "elastic-net", "fused-lasso",
                     "group-lasso-l2", "group-lasso-linf",
                     "sparse-group-lasso-l2", "sparse-group-lasso-linf",
                     "l1l2", "l1linf", "l1l2+l1", "l1linf+l1", "l1linf-row-column",
@@ -1312,77 +1308,58 @@ mtool.MNlogisticCCD <- function(X, Y, offset, N_covariates,
     else if (regularization %in% pen2_types) { penalty_code_val <- 2 }
     else if (regularization %in% pen3_types) { penalty_code_val <- 3 }
     
-    if (penalty_code_val == 0 && regularization != "none") {
-        stop('The provided regularization type string is not recognized for penalty code mapping.')
-    }
-    if (regularization == "none" && penalty_code_val == 0) penalty_code_val <- 1 # Default to flat if "none"
-    
-    ## --- Grooming penalty-specific inputs for C++ ---
-    if (is.null(group_id)) { group_id <- rep(0L, p_total) } # Default for proximalFlat
-    if (is.null(group_weights)) { group_weights <- vector(mode = 'double') } # Becomes etaG
-    if (is.null(groups)) { groups <- matrix(NA_real_, nrow = 0, ncol = 0) } # Becomes grp_mat
-    if (is.null(groups_var)) { groups_var <- matrix(NA_real_, nrow = 0, ncol = 0) } # Becomes grpV_mat
-    if (is.null(own_variables)) { own_variables <- vector(mode = 'integer') }
-    if (is.null(N_own_variables)) { N_own_variables <- vector(mode = 'integer') }
-    
-    # Ensure specific inputs for penalty types are valid (even if PCD mainly uses penalty_code=1 logic)
-    # This R wrapper will pass them; C++ needs to handle or ignore them based on penalty_code.
-    if (penalty_code_val == 1) {
-        if (!is.matrix(groups) || ncol(groups) == 0) groups <- matrix(NA_real_, nrow = 1, ncol = 0) # Dummy
-        if (!is.matrix(groups_var) || ncol(groups_var) == 0) groups_var <- matrix(NA_real_, nrow = 1, ncol = 0)
-    } else if (penalty_code_val == 2) {
-        if (is.null(groups) || nrow(groups) == 0) stop('Required input `groups` is missing for penalty_code=2.')
-        if (is.null(groups_var) || nrow(groups_var) == 0) stop('Required input `groups_var` is missing for penalty_code=2.')
-        if (is.null(group_weights) || length(group_weights) == 0) stop('Required input `group_weights` (etaG) is missing for penalty_code=2.')
-    } else if (penalty_code_val == 3) {
-        if (is.null(groups) || nrow(groups) == 0) stop('Required input `groups` is missing for penalty_code=3.')
-        if (is.null(own_variables) || length(own_variables) == 0) stop('Required input `own_variables` is missing for penalty_code=3.')
-        if (is.null(N_own_variables) || length(N_own_variables) == 0) stop('Required input `N_own_variables` is missing for penalty_code=3.')
-        if (is.null(group_weights) || length(group_weights) == 0) stop('Required input `group_weights` (etaG) is missing for penalty_code=3.')
+    if (penalty_code_val == 0) {
+        stop('The provided regularization type is not recognized.')
     }
     
+    # Number of regularized predictors
     reg_p_val <- as.integer(p_total - N_covariates)
-    if(reg_p_val < 0) stop("N_covariates cannot be greater than total number of predictors.")
-    if(reg_p_val > p_total) stop("reg_p_val calculated incorrectly.")
+    if(reg_p_val < 0 || reg_p_val > p_total) {
+        stop("N_covariates must be between 0 and the total number of predictors.")
+    }
     
-    
-    ## Call C++ PCD function (ensure C++ function is named MultinomLogisticExp_CCD_BlockRow)
-    result <- MultinomLogisticCCD( # Match C++ exported function name
-        X = X, Y = as.integer(Y), offset_vec = as.double(offset),
-        K_classes = as.integer(K_val), # Pass K_val as K_classes
+    ## --- Call C++ CCD function ---
+    result <- MultinomLogisticCCD(
+        X = X,
+        Y = Y_cpp,
+        offset_vec = as.double(offset),
+        K_classes = as.integer(K_classes),
         reg_p = reg_p_val,
         penalty_code = as.integer(penalty_code_val),
         regul = as.character(regularization),
-        transpose = as.logical(transpose),
-        grp_id = as.integer(group_id),
-        etaG = as.double(group_weights),
-        grp_mat = as.matrix(groups),
-        grpV_mat = as.matrix(groups_var),
-        own_var = as.integer(own_variables),
-        N_own_var = as.integer(N_own_variables),
+        transpose_prox_input = as.logical(transpose),
+        grp_id = if (is.null(group_id)) integer(0) else as.integer(group_id),
+        etaG = if (is.null(group_weights)) numeric(0) else as.double(group_weights),
+        grp_mat = if (is.null(groups)) matrix(0,0,0) else as.matrix(groups),
+        grpV_mat = if (is.null(groups_var)) matrix(0,0,0) else as.matrix(groups_var),
+        own_var = if (is.null(own_variables)) integer(0) else as.integer(own_variables),
+        N_own_var = if (is.null(N_own_variables)) integer(0) else as.integer(N_own_variables),
         lam1 = as.double(lambda1),
         lam2 = as.double(lambda2),
         lam3 = as.double(lambda3),
-        learning_rate_scale = as.double(learning_rate_scale), # Pass new param name
+        learning_rate_scale = as.double(learning_rate_scale),
         tolerance = as.double(tolerance),
+        kkt_abs_check_tol = as.double(kkt_abs_check_tol),
         maxit = as.integer(maxit),
+        max_ccd_passes_active_set = as.integer(max_ccd_passes_active_set),
         ncores = as.integer(ncores),
         pos = as.logical(pos)
     )
     
-    if (inherits(result$`Sparse Estimates`, "sparseMatrix")) {
-        nzc <- Matrix::nnzero(result$`Sparse Estimates`)
-    } else if (is.matrix(result$`Sparse Estimates`)) {
-        nzc <- sum(result$`Sparse Estimates` != 0)
-    } else {
-        nzc <- NA
-        warning("Could not determine number of non-zero coefficients from C++ output.")
+    # --- Format and return results ---
+    # Set column names for the K-1 non-reference classes
+    class_names <- levels(Y_factor)[-1]
+    if (ncol(result$Estimates) == length(class_names)) {
+        colnames(result$Estimates) <- class_names
+        if (inherits(result$`SparseEstimates`, "Matrix")) {
+            colnames(result$`SparseEstimates`) <- class_names
+        }
     }
     
-    return(list(coefficients = result$`Estimates`,
-                coefficients_sparse = result$`Sparse Estimates`,
-                coefficientshist = result$CoefficientHistory,
-                no_non_zero = nzc))
+    return(list(
+        coefficients = result$Estimates,
+        coefficients_sparse = result$SparseEstimates
+    ))
 }
 
 

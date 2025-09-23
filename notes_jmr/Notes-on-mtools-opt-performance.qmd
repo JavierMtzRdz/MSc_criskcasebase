@@ -613,8 +613,8 @@ iter_sim <- tibble()
 
 for (i in 1) {
 n <- 1000
-p <- 20
-lambda = c(0.001)
+p <- 200
+lambda = c(0.1)
 data <- gen_data(n, p)
 alpha = 0.5
 unpen_cov = 2
@@ -637,7 +637,7 @@ MNlogistic3 <-  mtool::mtool.MNlogistic3(
     tolerance = 1e-10
 )
 
-MNlogisticPCD <-  mtool::mtool.MNlogisticPCD(
+MNlogisticPCD <-  mtool::mtool.MNlogisticCCD(
     X = data$X_train,
     Y = data$Y_train,
     offset = data$offset,
@@ -691,7 +691,7 @@ iter_sim %>%
 if (save){
 
 for (i in 1) {
-    
+    i <- 1
     seed <- as.integer(i)
     
     # take the last five digits of the initial seed
@@ -700,7 +700,7 @@ for (i in 1) {
     set.seed(the_seed)
     n <- 1000
     p <- 2000
-    lambda = c(1e-10)
+    lambda = c(.1)
     data <- gen_data(n, p)
     alpha = 0.5
     unpen_cov = 2
@@ -710,7 +710,7 @@ for (i in 1) {
     
     
     set.seed(the_seed)
-    time <- system.time({MNlogistic <-  mtool::mtool.MNlogistic3(
+    time <- system.time({MNlogistic <-  mtool::mtool.MNlogistic2(
         X = data$X_train,
         Y = data$Y_train,
         offset = data$offset,
@@ -722,20 +722,6 @@ for (i in 1) {
         niter_inner_mtplyr = 7, maxit = 100,
         tolerance = 1e-4
     )})
-    
-    time_tol <- system.time({MNlogistic_tol <-  mtool::mtool.MNlogistic3(
-        X = data$X_train,
-        Y = data$Y_train,
-        offset = data$offset,
-        N_covariates = unpen_cov,
-        regularization = 'elastic-net',
-        transpose = FALSE,
-        lambda1 = lambda1, lambda2 = lambda2, 
-        lambda3 = 0,
-        niter_inner_mtplyr = 7, maxit = 100,
-        tolerance = 1e-5
-    )})
-    
     
     set.seed(the_seed)
     timeExp <- system.time({MNlogisticExp <- mtool::mtool.MNlogisticExp(
@@ -786,7 +772,7 @@ for (i in 1) {
     )})
     
       set.seed(the_seed)
-    timePCD <- system.time({MNlogisticPCD <- mtool::mtool.MNlogisticPCD(
+    timeCCD <- system.time({MNlogisticCCD <- mtool::mtool.MNlogisticCCD(
         X = data$X_train,
         Y = data$Y_train,
         offset = data$offset,
@@ -795,9 +781,6 @@ for (i in 1) {
         transpose = F,
         lambda1 = lambda1, lambda2 = lambda2, 
         lambda3 = 0,
-        maxit = 10,
-        tolerance = 1e-4,
-        learning_rate = 10
     )})
     
     
@@ -830,7 +813,7 @@ for (i in 1) {
                                           data$X_train, data$Y_train, data$offset,
                                           lambda, alpha, 20))
      
-     iter_valsPCD <- map_dbl(MNlogisticPCD$coefficientshist, ~
+     iter_valsCCD <- map_dbl(MNlogisticCCD$coefficients, ~
                                  objective(matrix(.x, 
                                                   nrow = ncol(data$X_train)), 
                                            data$X_train, data$Y_train, data$offset,
@@ -845,11 +828,12 @@ for (i in 1) {
                        sim = i,
                        time = time[1],
                        algorithm = "Original implementation\n(tol = 1e-4)") %>% 
-        bind_rows(tibble(obj_step = iter_vals_tol, 
-                         iter = 1:length(iter_vals_tol),
-                         sim = i,
-                         time = time_tol[1],
-                         algorithm = "Original implementation \n(tol = 1e-5)"),
+        bind_rows(
+            # tibble(obj_step = iter_vals_tol, 
+            #              iter = 1:length(iter_vals_tol),
+            #              sim = i,
+            #              time = time_tol[1],
+            #              algorithm = "Original implementation \n(tol = 1e-5)"),
                   tibble(obj_step = iter_valsExp, 
                          iter = 1:length(iter_valsExp),
                          sim = i,
@@ -865,11 +849,11 @@ for (i in 1) {
                          sim = i,
                          time = timeSAHRA[1],
                          algorithm = "SAHRA"),
-                  tibble(obj_step = iter_valsPCD, 
-                         iter = 1:length(iter_valsPCD),
+                  tibble(obj_step = iter_valsCCD, 
+                         iter = 1:length(iter_valsCCD),
                          sim = i,
-                         time = timePCD[1],
-                         algorithm = "PCD")) %>% 
+                         time = timeCCD[1],
+                         algorithm = "CCD")) %>% 
         bind_rows(iter_sim)
     saveRDS(iter_sim, here::here( "notes_jmr", "data", "opt-algorithms.rds"))
 }

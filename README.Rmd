@@ -1,0 +1,60 @@
+---
+output: github_document
+---
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "figs/README-",
+  out.width = "100%"
+)
+
+## Packages to use ----
+pacman::p_load(
+  tidyverse, janitor, writexl,
+  readxl, scales, mytidyfunctions
+)
+
+## Set theme ------
+theme_set(theme_jmr(text = element_text(family = "Times New Roman")))
+
+options(
+  ggplot2.discrete.colour = c("#277DA1", "#f94144", "#F9C74F", "#43AA8B"),
+  ggplot2.discrete.fill = c("#277DA1", "#f94144", "#F9C74F", "#43AA8B")
+)
+```
+# Penalized Competing Risks Analysis using Case-base Sampling
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+This repository contains code, data, notes, writing, and other materials related to an alternative penalized cause-specific hazards model that extends on the `casebase` package for competing risks survival analysis of high-dimensional biological data
+
+```bash
+                           /\_/\ 
+                          ( o.o )
+                           > ^ < 
+```
+## Main paper links
+
+Paper related documents are in the [paper folder](paper/).
+
+* [Selection plots code](paper/code/selection-plots.r)
+* [Resulting plots](paper/figs/)
+* Bladder cancer preprocessing and data analysis ([PDF](paper/suppl/Real_dataset_analysis.pdf)|[Quarto](paper/suppl/Real_dataset_analysis.qmd))
+* Secondary Bladder cancer data analysis ([PDF](paper/suppl/selection-1SE.pdf)|[Quarto](paper/suppl/selection-1SE.qmd))
+* [Experiment code](paper/code/) (files ending on .sh)
+* [Experiment results](paper/results/) (RDS files)
+
+## References
+
+---
+
+```bash
+                           ╱|、    
+                          (˚ˎ。7   
+                          |、˜〵   
+                          じしˍ,)ノ
+```

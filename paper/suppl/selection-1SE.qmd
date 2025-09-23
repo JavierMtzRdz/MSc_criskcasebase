@@ -1,0 +1,162 @@
+---
+title: "Real Dataset Analysis"
+# author: Javier Mtz.-Rdz.
+date-format: long
+number-sections: true
+number-depth: 4
+fig-dpi: 400
+format: 
+  pdf:
+    documentclass: article
+    header-includes: |
+      \usepackage[left=0.7in,right=0.7in,
+      top=0.7in,bottom=0.5in,footskip=0.7in]{geometry} 
+      \usepackage[document]{ragged2e}
+      \usepackage{amsmath,amsthm,amssymb,amsfonts}
+      \usepackage{mathtools}
+      % Using kp fonts
+      \usepackage{kpfonts}
+      \usepackage{dsfont}
+      \usepackage{centernot}
+      \usepackage[usenames,dvipsnames,table]{xcolor}
+      \usepackage{booktabs} % For improved table lines
+      \renewcommand{\arraystretch}{1} % Increase row spacing
+      \pagenumbering{arabic}
+      \renewcommand\thefigure{\arabic{figure}}
+    fontsize: 12pt
+    colorlinks: true
+knitr:
+  opts_chunk:
+    comment: "#>"
+    message: FALSE
+    echo: TRUE
+    warning: FALSE
+    dev: "png"
+    fig.width: 8
+    fig.height: 4.5
+    fig.align: center
+editor_options: 
+  chunk_output_type: console
+bibliography: competing-risk.bib
+---
+
+```{r preprocessing, include=FALSE}
+# Setup ----
+## Packages to use ----
+
+#' To install mytidyfunctions, you need 
+#' remotes::install_github("JavierMtzRdz/mytidyfunctions")
+if (!require("pacman")) install.packages("pacman")
+if (!require("mytidyfunctions")) remotes::install_github("JavierMtzRdz/mytidyfunctions")
+
+
+pacman::p_load(tidyverse, janitor, writexl, 
+              readxl, scales, mytidyfunctions,
+              patchwork, here, 
+              mtool, bench, kableExtra)
+
+library(casebase)
+library(future.apply)
+library(glmnet)
+library(mtool)
+library(parallel)
+library(tictoc)
+library(tidyverse)
+library(foreach)
+library(survival)
+library(cmprsk)
+library(glue)
+library(pec)
+library(survminer)
+library(rsample)
+
+
+
+source(here(#"MSc_criskcasebase",
+            "notes_jmr","code", "fitting_functionsV2.R"))
+source(here(#"MSc_criskcasebase",
+            "notes_jmr","code", "fitting_functionsV3.R"))
+
+## Load fonts ----
+extrafont::loadfonts(quiet = TRUE)
+
+## Set theme ------
+mytidyfunctions::set_mytheme(text = element_text(family = "Times New Roman"))
+
+
+# Set-up process
+
+save <- F
+
+```
+
+```{r}
+# Load preprocessed dataset
+bladder_comp_adj <- readRDS(here("paper", "data", "bladder_comp_adj.rds"))
+
+# Create a stratified 75/25 split
+set.seed(1234)
+split <- initial_split(bladder_comp_adj, prop = 0.75, strata = event)
+
+# Create training and testing data frames
+train <- training(split)
+test  <- testing(split)
+
+# Verify the proportions
+table(train$event) / nrow(train)
+table(test$event) / nrow(test)
+```
+
+# Analysis without Clinical Vars
+
+```{r}
+# Set fitting parameters
+fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
+                                   niter_inner_mtplyr = 0.5,
+                                   maxit = 500,
+                                   c_factor = 2000,
+                                   v_factor = 10000,
+                                   tolerance = 1e-3,
+                                   save_history = T,
+                                   verbose = F)
+
+if(save){
+    
+    set.seed(1234)
+    fit_fun <- purrr::partial(cbSCRIP::MNlogistic,
+                                niter_inner_mtplyr = 2,
+                                maxit = 200,
+                                tolerance = 1e-4,
+                                learning_rate = 1e-4,
+                                verbose = F,
+                                save_history = F)   
+    
+    cv_nc <- cv_cbSCRIP(
+        Surv(time, event) ~ .,
+        train[,-(3:7), , drop = FALSE],
+        alpha = 0.7,
+        nfold = 5,
+        nlambda = 50,
+        fit_fun = fit_fun,
+        ratio = 50)
+    
+    
+    plot(cv_nc)
+    
+    saveRDS(cv_nc, here("paper",
+                 "results",
+                 glue("cv_nc.rds")))
+}
+
+cv_nc <- readRDS(here("paper", "results", glue("cv_nc.rds")))
+
+# Print c-plot
+plot(cv_nc)
+
+# Print selected vars
+
+
+
+```
+
+

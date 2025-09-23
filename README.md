@@ -1,37 +1,43 @@
-# 💡 Penalized Competing Risks Analysis using Case-base Sampling
 
-📍 Repository with my code and my final report for my MSc. thesis
+<!-- README.md is generated from README.Rmd. Please edit that file -->
 
-🎯 We develop an alternative penalized cause-specific hazards model that extends on the `casebase` package for competing risks survival analysis of high-dimensional biological data
+# Penalized Competing Risks Analysis using Case-base Sampling
 
-## 📂 Repository organization 
+<!-- badges: start -->
 
-- `bash_script_template` - Template for bash scripts for Compute Canada. Creates individual bash scripts to be submitted to the cluster for one simulation run. Requires `runscripts` and `logs` folder to be setup
+<!-- badges: end -->
 
-- `doc` - Thesis write up using `ubcdiss` template
+This repository contains code, data, notes, writing, and other materials
+related to an alternative penalized cause-specific hazards model that
+extends on the `casebase` package for competing risks survival analysis
+of high-dimensional biological data
 
-- `Final_results` - Contains all final scripts,figures and results generated for the thesis for variable selection and prediction performance
+``` bash
+                           /\_/\ 
+                          ( o.o )
+                           > ^ < 
+```
 
-- `mtool` - `R` package for fitting a penalized multinomial regression model with the K-1 logit parameterization 
+## Main paper links
 
-- `mtool_fit_diagnostics` - Documentation of known issues with `mtool`
+Paper related documents are in the [paper folder](paper/).
 
-- `Papers` - Papers for background information. To be updated. 
+- [Selection plots code](paper/code/selection-plots.r)
+- [Resulting plots](paper/figs/)
+- Bladder cancer preprocessing and data analysis
+  ([PDF](paper/suppl/Real_dataset_analysis.pdf)\|[Quarto](paper/suppl/Real_dataset_analysis.qmd))
+- Secondary Bladder cancer data analysis
+  ([PDF](paper/suppl/selection-1SE.pdf)\|[Quarto](paper/suppl/selection-1SE.qmd))
+- [Experiment code](paper/code/) (files ending on .sh)
+- [Experiment results](paper/results/) (RDS files)
 
-- `simulation_scripts` - Template script for simulation from a two-cause model using the `replicate` function 
+## References
 
-- `src` - Helper fitting functions including the cross-validation function, simulation functions, and survival performance metrics functions 
+------------------------------------------------------------------------
 
-- `survsim_mod` - Contains modified funtions from the `survsim` `R` package to generate competing risks data with normally distributed covariates having 1) AR(1) correlation structure and 2) Block correlation structure
-
-- `updates` - Weekly meeting updates
-
-# 📃 Abstract
-
-Genome-wide transcriptome profiling and advances in experimental technologies have greatly increased the generation of high-dimensional genomic data, particularly microarray data correlated with survival outcomes such as patient survival time or time to cancer relapse. The analysis of such genomic time-to-event data becomes more complicated when there are competing events, i.e., the failure of a patient can occur due to one of multiple distinct causes. We develop an alternate elastic-net penalized competing risks analysis method that is able to produce easily interpretable hazard ratios akin to the Cox regression model. This approach is also able accurately produce smooth-in-time predicted estimates patient risk, in a variety of settings, such as non-proportional hazards as well. We examine the performance of this method in a simulation study, looking at both variable selection, as well as patient risk estimation performance in both the $N > p$ as well as the $p > N$ scenarios.
-
-🎺 The original model is based on the [casebase](https://arxiv.org/abs/2009.10264) paper by Sahir Bhatnagar, Maxime Turgeon, Jesse Islam and James Hanley, which is based on the [sampling methodology](https://www.degruyter.com/document/doi/10.2202/1557-4679.1125/html?lang=en) proposed by James Hanley and Olli Miettinen. 
-
-💻 The optimization for the stochastic gradient descent in `mtool` was written by Dr. Yi Lian.
-
-📌 The relaxed LASSO branch contains a relaxed LASSO implementation for the casebase penalized model (WIP) by Alex Romanus.
+``` bash
+                           ╱|、    
+                          (˚ˎ。7   
+                          |、˜〵   
+                          じしˍ,)ノ
+```

@@ -275,6 +275,9 @@ bladder_comp_adj <- model.matrix(~ .,
                                  data = bladder_comp_adj)[,-1] %>% 
     as_tibble()
 
+saveRDS(bladder_comp_adj,
+        here("paper", "data", "bladder_comp_adj.rds"))
+
 ```
 
 

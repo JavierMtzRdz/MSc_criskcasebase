@@ -51,13 +51,12 @@ if (!require("mytidyfunctions")) remotes::install_github("JavierMtzRdz/mytidyfun
 
 pacman::p_load(tidyverse, janitor, writexl, 
               readxl, scales, mytidyfunctions,
-              patchwork, here, 
-              mtool, bench, kableExtra)
+              patchwork, here, bench, kableExtra)
 
 library(casebase)
 library(future.apply)
 library(glmnet)
-library(mtool)
+# library(mtool)
 library(parallel)
 library(tictoc)
 library(tidyverse)

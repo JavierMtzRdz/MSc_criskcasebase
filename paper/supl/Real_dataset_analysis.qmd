@@ -73,9 +73,9 @@ library(rsample)
 
 
 source(here(#"MSc_criskcasebase",
-            "paper","code", "fitting_functionsV2.R"))
+            "notes_jmr","code", "fitting_functionsV2.R"))
 source(here(#"MSc_criskcasebase",
-            "paper","code", "fitting_functionsV3.R"))
+            "notes_jmr","code", "fitting_functionsV3.R"))
 
 ## Load fonts ----
 extrafont::loadfonts(quiet = TRUE)
@@ -102,8 +102,8 @@ Finally, the gene expression and clinical datasets were merged by a unique `samp
 
 ```{r}
 # Process microarray data ---
-bladder_fpd1 <- read_delim(here::here("notes_jmr/data/GSE5479_Final_processed_data_1.txt"))
-bladder_fpd2 <- read_delim(here::here("notes_jmr/data/GSE5479_Final_processed_data_2.txt"))
+bladder_fpd1 <- read_delim(here::here("paper/data/GSE5479_Final_processed_data_1.txt"))
+bladder_fpd2 <- read_delim(here::here("paper/data/GSE5479_Final_processed_data_2.txt"))
 
 bladder_fpd <- t(cbind(bladder_fpd1[, -1], bladder_fpd2[, -1])) %>% 
     data.frame() %>% 
@@ -116,7 +116,7 @@ bladder_fpd <- t(cbind(bladder_fpd1[, -1], bladder_fpd2[, -1])) %>%
 
 # Process clinical information
 
-bladder_hd <- read_xls(here::here("notes_jmr/data/6517200/10780432ccr062940-sup-supplemental_file_1.xls")) %>% 
+bladder_hd <- read_xls(here::here("paper/data/6517200/10780432ccr062940-sup-supplemental_file_1.xls")) %>% 
     clean_names() %>% 
     mutate(across(everything(), \(x)case_when(x == "-" ~ NA, 
                                               T ~ x))) %>% 
@@ -674,6 +674,11 @@ if(save){
 }
 
 
+cv_multinom_enet_nc <- readRDS(here("paper",
+                                 "results",
+                                 glue("cv_multinom_enet_nc.rds")))
+
+# Analysis - 1 SE.
 
 enet_nc <- cbSCRIP(
         Surv(time, event) ~ .,
@@ -689,9 +694,6 @@ enet_nc$coefficients[[1]][,1][!same(enet_nc$coefficients[[1]][,1], 0)]
 enet_nc$coefficients[[1]][,2][!same(enet_nc$coefficients[[1]][,2], 0)]
 
 
-cv_multinom_enet_nc <- readRDS(here("paper",
-                                 "results",
-                                 glue("cv_multinom_enet_nc.rds")))
 
 
 plot(cv_multinom_enet_nc)
@@ -706,11 +708,6 @@ sum(!same(cv_multinom_enet_nc$fit.min$coefficients_sparse, 0))
 ## Number of non zero variables
 length(select_coef_cbscrip_enet_nc) - 2
 select_coef_cbscrip_enet_nc
- 
-
-1. Análisis sólo con genes. Con (sin penalizar) y sin clínicas. W - 1SE lambda. 
-2. Repetitions and interesections.
-3. Prediction plots.
 ```
 
 ## Multinomial SCAD Case-Base Model 
@@ -1227,7 +1224,6 @@ length(selected_coefs_lasso_top)
 ## Summary
 
 ```{r}
-# No penalizar variables clínicas. 
 
 cbscrip_enet_coefs_top <- select_coef_cbscrip_enet_top[!(names(select_coef_cbscrip_enet_top) %in%
                                             c("(Intercept)",

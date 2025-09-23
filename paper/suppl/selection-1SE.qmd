@@ -117,19 +117,12 @@ fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
                                    c_factor = 2000,
                                    v_factor = 10000,
                                    tolerance = 1e-3,
-                                   save_history = T,
+                                   save_history = F,
                                    verbose = F)
 
 if(save){
     
     set.seed(1234)
-    fit_fun <- purrr::partial(cbSCRIP::MNlogistic,
-                                niter_inner_mtplyr = 2,
-                                maxit = 200,
-                                tolerance = 1e-4,
-                                learning_rate = 1e-4,
-                                verbose = F,
-                                save_history = F)   
     
     cv_nc <- cv_cbSCRIP(
         Surv(time, event) ~ .,
@@ -154,7 +147,18 @@ cv_nc <- readRDS(here("paper", "results", glue("cv_nc.rds")))
 plot(cv_nc)
 
 # Print selected vars
+## filter rows
+filt_rows <- which(!same(cv_nc$fit.min$coefficients[,1], 0) | 
+          !same(cv_nc$fit.min$coefficients[,2], 0)) 
 
+cv_nc$fit.min$coefficients[filt_rows,]
+
+# Fit model with Lambda(min - 1SE)
+lambda_min_nc <- cv_nc$lambda.min
+lambda_min_nc_idx <- which(lambda_min_nc == cv_nc$lambdagrid)
+dev_lambda_nc <- cv_nc$deviance_mean[lambda_min_nc_idx]
+se_lambda_nc <- cv_nc$deviance_se[lambda_min_nc_idx]
+lambda_min_minus_se_idx <- cv_nc$deviance_mean - (dev_lambda_nc + se_lambda_nc)
 
 
 ```

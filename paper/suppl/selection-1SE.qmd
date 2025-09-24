@@ -175,10 +175,11 @@ if(save){
         train[,-(3:7), , drop = FALSE],
         alpha = 0.7,
         lambda = lambda_min_minus_se,
-        fit_fun = fit_fun,
         ratio = 50)
     
-    if(i== 1) {count_mtx <- !same(p1se_nc$coefficients[[1]],0)
+    if(i== 1) {
+        count_mtx <- !same(p1se_nc$coefficients[[1]],0)
+        count_mtx[] <- as.integer(!same(p1se_nc$coefficients[[1]],0))
     } else {
         count_mtx_loop <- !same(p1se_nc$coefficients[[1]],0)
         count_mtx_loop[] <- as.integer(!same(p1se_nc$coefficients[[1]],0))

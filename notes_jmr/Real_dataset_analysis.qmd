@@ -52,7 +52,8 @@ if (!require("mytidyfunctions")) remotes::install_github("JavierMtzRdz/mytidyfun
 
 pacman::p_load(tidyverse, janitor, writexl, 
               readxl, scales, mytidyfunctions,
-              patchwork, here, bench, kableExtra)
+              patchwork, here, bench, kableExtra,
+              cbSCRIP)
 
 library(casebase)
 library(future.apply)
@@ -68,6 +69,15 @@ library(glue)
 library(pec)
 library(survminer)
 library(rsample)
+
+# Define the fitting function 
+fit_fun <- purrr::partial(cbSCRIP::MNlogistic,
+                                niter_inner_mtplyr = 2,
+                                maxit = 200,
+                                tolerance = 1e-4,
+                                learning_rate = 1e-4,
+                                verbose = F,
+                                save_history = F)  
 
 
 
@@ -298,14 +308,6 @@ table(test$event) / nrow(test)
 ## Multinomial Elastic-Net Case-Base Model 
 
 ```{r}
-# Define the fitting function 
-fit_fun <- purrr::partial(cbSCRIP::MNlogistic,
-                                niter_inner_mtplyr = 2,
-                                maxit = 200,
-                                tolerance = 1e-4,
-                                learning_rate = 1e-4,
-                                verbose = F,
-                                save_history = F)   
 
 # Perform cross-validation on the training data
 

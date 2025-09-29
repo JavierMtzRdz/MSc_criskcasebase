@@ -299,21 +299,41 @@ cause_subdist_sim <- function(n, p, beta1, beta2, num.true = 20, mix_p = 0.5
   return(sim.data)
 }
 ################## Prediction function for coxBoost ###########################
-predictRisk.iCoxBoost <- function(object, newdata, times, cause,...){
-  p <- predict(object, newdata= newdata,type="CIF",times= newdata$ftime)
-  # if (is.null(dim(p))) {
-  #    if (length(p)!=length(times))
-  #     stop("Prediction failed (wrong number of times)")
-  # }
-  #  else{
-  #    if (NROW(p) != NROW(newdata) || NCOL(p) != length(times))
-  #      stop(paste("\nPrediction matrix has wrong dimension:\nRequested newdata x times: ",NROW(newdata)," x ",length(times),"\nProvided prediction matrix: ",NROW(p)," x ",NCOL(p),"\n\n",sep=""))
-  #  }
-  p
+# predictRisk.iCoxBoost <- function(object, newdata, times, cause,...){
+#   p <- predict(object, newdata= newdata,type="CIF",times= newdata$ftime)
+#   # if (is.null(dim(p))) {
+#   #    if (length(p)!=length(times))
+#   #     stop("Prediction failed (wrong number of times)")
+#   # }
+#   #  else{
+#   #    if (NROW(p) != NROW(newdata) || NCOL(p) != length(times))
+#   #      stop(paste("\nPrediction matrix has wrong dimension:\nRequested newdata x times: ",NROW(newdata)," x ",length(times),"\nProvided prediction matrix: ",NROW(p)," x ",NCOL(p),"\n\n",sep=""))
+#   #  }
+#   p
+# }
+
+predictRisk.iCoxBoost <- function(object, newdata, times, cause, ...) {
+    # ask the model for CIFs exactly at 'times' (not newdata$ftime)
+    p <- predict(object, newdata = newdata, type = "CIF", times = times, cause = cause)
+    
+    # Ensure correct shape: rows = NROW(newdata), cols = length(times)
+    if (is.null(dim(p))) {
+        p <- matrix(p, nrow = NROW(newdata), ncol = length(times))
+    } else {
+        if (NROW(p) != NROW(newdata) || NCOL(p) != length(times)) {
+            stop(sprintf(
+                "Prediction matrix has wrong dimension. Expected %d x %d, got %d x %d.",
+                NROW(newdata), length(times), NROW(p), NCOL(p)
+            ))
+        }
+    }
+    p
 }
+
 ##################### Prediction function for casebase penalized model ################
 predict_CompRisk <- function(object, newdata = NULL) {
   ttob <- terms(object)
+  #ttob <-.get_Terms(object)
   X <- model.matrix(delete.response(ttob), newdata,
                     contrasts = if (length(object@contrasts)) {
                       object@contrasts
@@ -328,6 +348,61 @@ predict_CompRisk <- function(object, newdata = NULL) {
   return(preds)
 }
 
+#---- NEW -----
+
+# helper
+`%||%` <- function(a,b) if (!is.null(a)) a else b
+
+predictRisk.penalizedCompRisk <- function(object, newdata, times, cause, ...) {
+    stopifnot(cause == 1)
+    
+    cb <- object$cb_data
+    cn <- colnames(cb$covariates)
+    Xnew <- as.matrix(newdata[, cn, drop = FALSE])
+    N <- nrow(Xnew); Tt <- length(times)
+    
+    # --- grab and align coefficients by name ---
+    beta_mat <- object$coefficients[[1]]
+    # drop intercept if present
+    if (!is.null(rownames(beta_mat)) && "(Intercept)" %in% rownames(beta_mat)) {
+        beta_mat <- beta_mat[setdiff(rownames(beta_mat), "(Intercept)"), , drop = FALSE]
+    }
+    # choose the column you want (here first)
+    if (is.matrix(beta_mat)) beta_mat <- beta_mat[, 1, drop = FALSE]
+    
+    # build beta vector matching covariate columns; fill absent ones with 0
+    if (!is.null(rownames(beta_mat))) {
+        beta <- setNames(rep(0, length(cn)), cn)
+        rn <- intersect(rownames(beta_mat), cn)
+        beta[rn] <- as.numeric(beta_mat[rn, 1])
+        beta <- as.numeric(beta)  # now length(beta) == length(cn)
+    } else {
+        # no names available → last resort: require matching length
+        stopifnot(length(beta_mat) == length(cn))
+        beta <- as.numeric(beta_mat)
+    }
+    
+    # --- map requested times to the cb grid + offsets ---
+    gTimes <- sort(unique(cb$time))
+    off_by_time <- tapply(cb$offset, cb$time, mean)
+    pos <- prodlim::sindex(jump.times = gTimes, eval.times = pmin(times, max(gTimes)))
+    off_t <- as.numeric(off_by_time)[pos]  # length Tt
+    
+    # --- hazard and CIF (single cause) ---
+    linp <- as.vector(Xnew %*% beta)
+    hmat <- sapply(off_t, function(o) plogis(linp + o))  # N x Tt
+    
+    CIF <- matrix(0, N, Tt); S <- matrix(1, N, Tt)
+    for (j in seq_len(Tt)) {
+        add <- if (j == 1) hmat[, j] else S[, j-1] * hmat[, j]
+        CIF[, j] <- if (j == 1) add else CIF[, j-1] + add
+        S[, j]   <- if (j == 1) (1 - hmat[, j]) else S[, j-1] * (1 - hmat[, j])
+    }
+    CIF
+}
+
+
+#----------------
 
 ########################## Test train validation function for mtool.multinom ########
 mtool.multinom.holdout <- function(train, 
@@ -444,41 +519,43 @@ predictRisk.CompRisk<- function(object, newdata, times, cause, ...) {
 }
 
 ####################################################################################
-predictRisk.penalizedCompRisk <- function(object, newdata, times, cause, ...) {
-  #get all covariates excluding intercept and time
-  #newdata = newdata[, .SD, .SDcols = grep("X", colnames(newdata), value = TRUE)]
-  if (missing(cause)) stop("Argument cause should be the event type for which we predict the absolute risk.")
-  # the output of absoluteRisk is an array with dimension depending on the length of the requested times:
-  # case 1: the number of time points is 1
-  #         dim(array) =  (length(time), NROW(newdata), number of causes in the data)
-  if (length(times) == 1) {
-    a <- absoluteRisk.penalized(object, newdata = newdata, time = times, addZero = FALSE)
-    p <- matrix(a, ncol = 1)
-  } else {
-    # case 2 a) zero is included in the number of time points
-    if (0 %in% times) {
-      # dim(array) =  (length(time)+1, NROW(newdata)+1, number of causes in the data)
-      a <- absoluteRisk.penalized(object, newdata = newdata, time = times)
-      p <- t(a)
-    } else {
-      # case 2 b) zero is not included in the number of time points (but the absoluteRisk function adds it)
-      a <- absoluteRisk.penalized(object, newdata = newdata, time = times)
-      ### we need to invert the plot because, by default, we get cumulative incidence
-      #a[, -c(1)] <- 1 - a[, -c(1)]
-      ### we remove time 0 for everyone, and remove the time column
-      a <- a[-c(1), -c(1)] ### a[-c(1), ] to keep times column, but remove time 0 probabilities
-      # now we transpose the matrix because in riskRegression we work with number of
-      # observations in rows and time points in columns
-      p <- t(a)
-    }
-  }
-  if (NROW(p) != NROW(newdata) || NCOL(p) != length(times)) {
-    stop(paste("\nPrediction matrix has wrong dimensions:\nRequested newdata x times: ", 
-               NROW(newdata), " x ", length(times), "\nProvided prediction matrix: ", 
-               NROW(p), " x ", NCOL(p), "\n\n", sep = ""))
-  }
-  p
-}
+# predictRisk.penalizedCompRisk <- function(object, newdata, times, cause, ...) {
+#   #get all covariates excluding intercept and time
+#   #newdata = newdata[, .SD, .SDcols = grep("X", colnames(newdata), value = TRUE)]
+#   if (missing(cause)) stop("Argument cause should be the event type for which we predict the absolute risk.")
+#   # the output of absoluteRisk is an array with dimension depending on the length of the requested times:
+#   # case 1: the number of time points is 1
+#   #         dim(array) =  (length(time), NROW(newdata), number of causes in the data)
+#   if (length(times) == 1) {
+#     a <- absoluteRisk.penalized(object, newdata = newdata, time = times, addZero = FALSE)
+#     p <- matrix(a, ncol = 1)
+#   } else {
+#     # case 2 a) zero is included in the number of time points
+#     if (0 %in% times) {
+#       # dim(array) =  (length(time)+1, NROW(newdata)+1, number of causes in the data)
+#       a <- absoluteRisk.penalized(object, newdata = newdata, time = times)
+#       p <- t(a)
+#     } else {
+#       # case 2 b) zero is not included in the number of time points (but the absoluteRisk function adds it)
+#       a <- absoluteRisk.penalized(object, newdata = newdata, time = times)
+#       ### we need to invert the plot because, by default, we get cumulative incidence
+#       #a[, -c(1)] <- 1 - a[, -c(1)]
+#       ### we remove time 0 for everyone, and remove the time column
+#       a <- a[-c(1), -c(1)] ### a[-c(1), ] to keep times column, but remove time 0 probabilities
+#       # now we transpose the matrix because in riskRegression we work with number of
+#       # observations in rows and time points in columns
+#       p <- t(a)
+#     }
+#   }
+#   if (NROW(p) != NROW(newdata) || NCOL(p) != length(times)) {
+#     stop(paste("\nPrediction matrix has wrong dimensions:\nRequested newdata x times: ", 
+#                NROW(newdata), " x ", length(times), "\nProvided prediction matrix: ", 
+#                NROW(p), " x ", NCOL(p), "\n\n", sep = ""))
+#   }
+#   p
+# }
+
+
 ########### Function to compute weibull hazard #######################################
 weibull_hazard <- Vectorize(function(gamma, lambda, t) {
   return(gamma * lambda * t^(gamma - 1))
@@ -612,7 +689,8 @@ oneCSlasso = function(data, cause, lambdavec, ...){
   X = as.matrix(data[, vars])
   y = Surv(data$ftime, data$fstatus == cause)
   glmnet.res = glmnet(x = X, y =y, alpha= 0.7, standardize=FALSE, 
-                      lambda = lambdavec, ...)
+                      lambda = lambdavec, 
+                      family = "cox", ...)
   lp = lapply(lambdavec, function(s)
     as.numeric(predict(glmnet.res, newx=X, s=s, type="link")))
   out <- list('glmnet.res' = glmnet.res, 'vars' = vars, 'linear.predictor'=lp, 
@@ -643,6 +721,12 @@ twoCSlassos <- function(data, lambdavecs, ...){
   out$call <- match.call()
   class(out) <- "twoCSlassos"
   out
+}
+
+#added this function
+two.i.CSlassos <- function(data, nlambda = 100, lambda_min_ratio = 1e-4, ...) {
+    lv <- exp(seq(log(lambda_min_ratio), 0, length.out = nlambda))
+    twoCSlassos(data = data, lambdavecs = list(lv, lv), ...)
 }
 
 
@@ -698,8 +782,41 @@ predictEventProb.two.selpen.CSlassos = function (object, newdata, times, cause, 
   p
 }
 
+################## Prediction function for twoCSlassos ###########################
+predictRisk.twoCSlassos <- function(object, newdata, times, cause, 
+                                    lambdavecs = NULL, indices = NULL, ...) {
+    if (is.null(lambdavecs)) lambdavecs <- object$lambdas
+    if (is.null(indices))    indices    <- vapply(lambdavecs, length, integer(1))  # last λ of each path
+    predictEventProb.twoCSlassos(object, newdata = newdata, times = times, 
+                                 cause = cause, lambdavecs = lambdavecs, indices = indices, ...)
+}
 
-####from cv.glmnetCR_v5_2.R
+
+predictRisk.two.selpen.CSlassos <- function(object, newdata, times, cause, 
+                                            lambdavecs = NULL, ...) {
+    if (is.null(lambdavecs)) lambdavecs <- object$alllambdas$lambdas
+    predictEventProb.two.selpen.CSlassos(object, newdata = newdata, times = times, 
+                                         cause = cause, lambdavecs = lambdavecs, ...)
+}
+
+################## Prediction function for penalizedCompRisk ###########################
+# predictRisk.penalizedCompRisk <- function(object, newdata, times, cause, ...) {
+#     # ask the model directly for CIFs at 'times'
+#     P <- predict(object, newdata = newdata, type = "CIF", times = times, cause = cause, ...)
+#     # Ensure N x T matrix
+#     if (is.null(dim(P))) {
+#         P <- matrix(P, nrow = NROW(newdata), ncol = length(times))
+#     } else {
+#         if (NROW(P) != NROW(newdata) || NCOL(P) != length(times)) {
+#             stop(sprintf("predictRisk.penalizedCompRisk: expected %d x %d, got %d x %d",
+#                          NROW(newdata), length(times), NROW(P), NCOL(P)))
+#         }
+#     }
+#     P
+# }
+
+####from cv.g
+#lmnetCR_v5_2.R
 
 cv.glmnet.CR = function (data, causeOfInt, nfolds = 10,alpha=1, standardize=FALSE, 
                          t.BS = NULL, nlambda = 20, seed = 1, draw.heatmap = FALSE, ...) {

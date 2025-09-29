@@ -54,7 +54,7 @@ library(survminer)
 
 
 source(here(#"MSc_criskcasebase",
-    "paper","code", "fitting_functionsV2.R"))
+    "notes_jmr","code", "fitting_functionsV2.R"))
 
 ## Load fonts ----
 extrafont::loadfonts(quiet = TRUE)
@@ -95,27 +95,7 @@ data_proj <- name_model %>%
     arrange(p, k)
 
 
-## Read individual coefficients
-if (F){
-    
-    # select_mod <- map_df(1:nrow(data_proj), 
-    #                      function(i){data_proj[i,-1] %>% 
-    #                              select(-sim) %>% 
-    #                              bind_cols(suppressMessages(readRDS(data_proj$name_files_comp[i])) %>% 
-    #                                            mutate(model_size = TP + FP) #%>% 
-    #                                        # mutate(model = case_match(model,
-    #                                        #                           "iCR.bias" ~ "enet-iCR",
-    #                                        #                           "penCRbias" ~ "enet-penCR",
-    #                                        #                           "CB-bias" ~ "enet-casebase",
-    #                                        #                           "CB-bias-Acc" ~ "enet-casebase-Acc",
-    #                                        #                           "postCB-bias" ~ "postenet-casebase",
-    #                                        #                           "postCB-bias-Acc" ~ "postenet-casebase-Acc"))
-    #                              )})
-    # # coefs_mod <- coefs_mod %>% 
-    # #     filter(!str_detect(model, "bias"))
-    # 
-    # saveRDS(select_mod, here("paper", "results", "select_mod.rds"))
-}
+## Read coefficients
 
 select_mod <- readRDS(here("paper", "results", "select_mod.rds")) %>% 
     filter(!str_detect(model, "SCAD"))
@@ -124,7 +104,6 @@ select_mod <- readRDS(here("paper", "results", "select_mod.rds")) %>%
 # Extrapolate for missing model size
 
 sum_selec <- select_mod %>% 
-    # filter(sim <= 2) %>%
     group_by(model, setting, dim, sim, p, k, model_size) %>% 
     summarise(n_models = n(),
               across(Sensitivity:MCC, mean)) %>% 
@@ -145,9 +124,6 @@ sum_selec <- select_mod %>%
 
 
 sum_selec %>% 
-    # filter(sim <= 2,
-    #        setting == 1) %>% 
-    # filter(p == 1000, k == 168) %>% 
     ungroup() %>% 
     group_by(model_size, p, k, setting, model, dim) %>%
     summarise(Sensitivity = mean(Sensitivity, na.rm = T),
@@ -171,9 +147,6 @@ ggsave(here("paper", "figs", "selection-tpr.png"),
 
 
 sum_selec %>% 
-    # filter(sim <= 2,
-    #        setting == 1) %>% 
-    # filter(p == 1000, k == 168) %>% 
     ungroup() %>% 
     group_by(model_size, p, k, setting, model, dim) %>% 
     summarise(MCC = mean(MCC, na.rm = T)) %>% 
@@ -206,12 +179,13 @@ sum_selec %>%
     geom_path() +
     facet_grid(paste0("Setting ", setting) ~fct_inorder(dim)) +
     coord_equal() +
+    scale_x_continuous(breaks = c(.25, .5, .75, 1)) +
     ylim(-0.01,1.01) +
     labs(color = "Model ")
 
 ggsave(here("paper", "figs", "selection-curve.png"),
        bg = "transparent",
-       width = 200,     
-       height = 120,
+       width = 180,     
+       height = 180,
        units = "mm",
        dpi = 300)

@@ -16,6 +16,55 @@ settings_tbl <- tibble::tribble(
     "setting5", "Non-proportional hazards"
 )
 
+#----------------------------
+# Params
+
+#---------------------
+N <- 400; p <- 120; k <- 20
+
 for (set in 1:5){
-brier_plot_fn(400, 500, 84, set)
+    brier_plot_fn(N, p, k, set)
 }
+
+plot_grid_fn(N, p, k)
+dev.off()  
+
+#---------------------
+N <- 400; p <- 500; k <- 20
+
+for (set in 1:5){
+brier_plot_fn(N, p, k, set)
+}
+
+plot_grid_fn(N, p, k)
+dev.off()    
+
+#----------------------------
+N <- 400; p <- 500; k <- 84
+
+for (set in 1:5){
+    brier_plot_fn(N, p, k, set)
+}
+
+plot_grid_fn(N, p, k)
+dev.off() 
+
+#----------------------------
+N <- 400; p <- 1000; k <- 20
+
+for (set in 1:5){
+    brier_plot_fn(N, p, k, set)
+}
+
+plot_grid_fn(N, p, k)
+dev.off()  
+
+#----------------------------------
+N <- 400; p <- 1000; k <- 168
+
+for (set in 1:5){
+    brier_plot_fn(N, p, k, set)
+}
+
+plot_grid_fn(N, p, k)
+dev.off()  

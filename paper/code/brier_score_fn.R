@@ -22,10 +22,13 @@ source("notes_jmr/code/fitting_functions.R")
 
 #function helpers
 
-make_title <- function(N, p, num_true, setting) {
-    desc <- settings_tbl$desc[settings_tbl$setting == setting]
-    paste0("N = ", N, ", p = ", p,  ", k = ", num_true, ", ", desc)
-}
+# make_title <- function(N, p, num_true, setting) {
+#     desc <- settings_tbl$desc[settings_tbl$setting == setting]
+#     paste0("N = ", N, ", p = ", p,  ", k = ", num_true, ", ", desc)
+# }
+
+make_run_id <- function(setting, N, p, k)
+    sprintf("setting%d_N%d_p%d_k%d", setting, N, p, k)
 
 make_fname <- function(setting, N, p, num_true) {
     paste0("brier_setting", setting,
@@ -33,7 +36,7 @@ make_fname <- function(setting, N, p, num_true) {
 }
 
 
-brier_plot_fn <- function(n, p, num_true, setting){
+brier_plot_fn <- function(n, p, num_true, setting,save_dir = here::here("paper","preds")){
 
 data <- cbSCRIP:::gen_data(n = n, p = p, num_true = num_true, setting = setting, iter = 123)
 
@@ -45,6 +48,10 @@ p <- sum(grepl("^X", names(train)))  # number of X-variables
 
 # Test time-points for Brier score 
 time_points <- sort(unique(test$ftime))
+
+#restrict test time-points outside the training
+tmax <- max(train$ftime[train$fstatus != 0], na.rm = TRUE)
+time_points <- time_points[ is.finite(time_points) & time_points <= tmax ]
 
 ################## Brier score casebase #########################
 
@@ -175,7 +182,8 @@ data_brier$model <- factor(data_brier$model)
 levels(data_brier$model) <- c("Aalen-Johansen", "De-biased Case-base", "Boosted Fine-Gray", "iCR", "Case-base")
 
 #data_brier$title <- "N = 400, p = 300, Non-proportional hazards"
-data_brier$title <- make_title(n, p, num_true, paste0("setting",setting))
+#data_brier$title <- make_title(n, p, num_true, paste0("setting",setting))
+data_brier$title <- settings_tbl$desc[settings_tbl$setting == paste0("setting",setting)]
 
 cbPalette <- c("#808080", "#D55E00", "#CC79A7", "#56B4E9", "#E69F00")
 
@@ -193,12 +201,63 @@ plot2 <- ggplot(data = data_brier, aes(x = times, y = Brier, col = model)) +
   labs(y = "Brier Score for Cause 1 Predictions") +
   scale_colour_manual(values=cbPalette) + facet_grid(. ~ title)
 
-#print(plot2)
-
+#------- save plot ------------------------------
 ggsave(here("paper", "figs", fname), plot2,
        width = 20, height = 12, units = "cm", dpi = 300)  # save file
 
-#dev.off()
+#------- save data and objects ------------------
+run_id <- make_run_id(setting, n, p, num_true)
+dir.create(save_dir, recursive = TRUE, showWarnings = FALSE)
+rds_path <- file.path(save_dir, paste0("results_", run_id, ".rds"))
+
+results <- list(
+    meta = list(N = n, p = p, k = num_true, setting = setting,
+                time_points = time_points, seed = 123,
+                fname = fname),
+    data = list(train = train, test = test, beta1 = beta1, beta2 = beta2),
+    models = list(
+        fit_val_min = fit_val_min,
+        fit_val_min2SE = fit_val_min2SE,
+        model_cb = model_cb,
+        cbfit = cbfit,
+        iCS = iCS,
+        fit_aj = fit.aj
+    ),
+    scores = list(
+        briercasebase = briercasebase,
+        brierpenCB = brierpenCB,
+        briercoxboost = briercoxboost,
+        brieriCS = brieriCS,
+        score_aj = score_aj
+    ),
+    brier_table = data_brier,
+    plot = plot2
+)
+
+saveRDS(results, rds_path, compress = "xz")
+message("Saved run to: ", rds_path)
+
+invisible(results) 
 }
 
+plot_grid_fn <- function(N,p,k){
+# Reading figures
+img_dir <- here::here("paper","figs")
+files <- file.path(img_dir, sprintf("brier_setting%d_N%d_p%d_k%d.png", 1:5, N, p, k))
+out   <- file.path(img_dir, sprintf("brier_grid_N%d_p%d_k%d.png", N, p, k))
 
+dir.create(dirname(out), recursive = TRUE, showWarnings = FALSE)
+
+# --- SAVE TO FILE ---
+grDevices::png(out, width = 2400, height = 1600, res = 200)
+grid::grid.newpage()
+vp <- grid::viewport(layout = grid::grid.layout(2, 3))
+grid::pushViewport(vp)
+
+for (i in seq_along(files)) {
+    r <- ((i - 1) %/% 3) + 1
+    c <- ((i - 1) %%  3) + 1
+    img <- png::readPNG(files[i])                # note: png::readPNG => no library(png) needed
+    grid::grid.raster(img, vp = grid::viewport(layout.pos.row = r, layout.pos.col = c))
+}
+}

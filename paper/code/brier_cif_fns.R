@@ -20,23 +20,9 @@ source("paper/code/prediction_functions.r")
 source("notes_jmr/code/fitting_functions.R")
 
 
-#function helpers
+#--------------- BRIER PLOTS FUNCTION -------------------
 
-# make_title <- function(N, p, num_true, setting) {
-#     desc <- settings_tbl$desc[settings_tbl$setting == setting]
-#     paste0("N = ", N, ", p = ", p,  ", k = ", num_true, ", ", desc)
-# }
-
-make_run_id <- function(setting, N, p, k)
-    sprintf("setting%d_N%d_p%d_k%d", setting, N, p, k)
-
-make_fname <- function(setting, N, p, num_true) {
-    paste0("brier_setting", setting,
-           "_N", N, "_p", p, "_k", num_true, ".png")
-}
-
-
-brier_plot_fn <- function(n, p, num_true, setting,save_dir = here::here("paper","preds")){
+brier_fn <- function(n, p, num_true, setting,save_dir = here::here("paper","preds")){
 
 data <- cbSCRIP:::gen_data(n = n, p = p, num_true = num_true, setting = setting, iter = 123)
 
@@ -181,15 +167,13 @@ data_brier$model <- factor(data_brier$model)
 
 levels(data_brier$model) <- c("Aalen-Johansen", "De-biased Case-base", "Boosted Fine-Gray", "iCR", "Case-base")
 
-#data_brier$title <- "N = 400, p = 300, Non-proportional hazards"
-#data_brier$title <- make_title(n, p, num_true, paste0("setting",setting))
 data_brier$title <- settings_tbl$desc[settings_tbl$setting == paste0("setting",setting)]
 
 cbPalette <- c("#808080", "#D55E00", "#CC79A7", "#56B4E9", "#E69F00")
 
-fname <- make_fname(setting=setting, N=n, p=p, num_true=num_true)
+fname <- paste0("brier_setting", setting,
+       "_N", N, "_p", p, "_k", num_true, ".png")
 
-#png(filename = here("paper", "figs", fname), res = 300, height = 12, width = 20, units = "cm") 
 plot2 <- ggplot(data = data_brier, aes(x = times, y = Brier, col = model)) +
   geom_line(size = 0.5) + 
   geom_line(data = filter(data_brier, model == "De-biased Case-base"), linewidth  = 2) + 
@@ -199,14 +183,15 @@ plot2 <- ggplot(data = data_brier, aes(x = times, y = Brier, col = model)) +
   labs(color = "Models") +
   theme_bw() + scale_colour_brewer(palette = "Dark2") +
   labs(y = "Brier Score for Cause 1 Predictions") +
-  scale_colour_manual(values=cbPalette) + facet_grid(. ~ title)
+  scale_colour_manual(values=cbPalette) + 
+  facet_grid(. ~ title)
 
 #------- save plot ------------------------------
-ggsave(here("paper", "figs", fname), plot2,
+ggsave(here("paper", "brier_figs", fname), plot2,
        width = 20, height = 12, units = "cm", dpi = 300)  # save file
 
 #------- save data and objects ------------------
-run_id <- make_run_id(setting, n, p, num_true)
+run_id <- sprintf("setting%d_N%d_p%d_k%d", setting, n, p, num_true)
 dir.create(save_dir, recursive = TRUE, showWarnings = FALSE)
 rds_path <- file.path(save_dir, paste0("results_", run_id, ".rds"))
 
@@ -240,24 +225,130 @@ message("Saved run to: ", rds_path)
 invisible(results) 
 }
 
-plot_grid_fn <- function(N,p,k){
-# Reading figures
-img_dir <- here::here("paper","figs")
-files <- file.path(img_dir, sprintf("brier_setting%d_N%d_p%d_k%d.png", 1:5, N, p, k))
-out   <- file.path(img_dir, sprintf("brier_grid_N%d_p%d_k%d.png", N, p, k))
+#------------ CIF PLOT FUNCTION ----------------------
+cif_plot_fn <- function(n, p, num_true,setting){
+    
+# load a saved run and tweak the plot label without recomputing
+run_id <- sprintf("setting%d_N%d_p%d_k%d", setting, n, p, num_true)
+res <- readRDS(here::here("paper","preds", paste0("results_", run_id, ".rds")))
+cif_title <- settings_tbl$desc[settings_tbl$setting == paste0("setting",setting)]   
+    
+#data from saved object
+time_points <- res$meta$time_points
+test <- res$data$test  
+train <- res$data$train
+    
+#-------------- De-biased CASEBASE -------------
+    # (unpenalized based on selection)
+    # Estimate absolute risk curve 
+    risk_cb <- absoluteRisk(
+        object = res$models$model_cb, time = time_points,
+        method = "numerical"
+    )
+    
+    risk_cb <- risk_cb[-1, ]
+    risk_cb <- as.numeric(unlist(rowMeans(risk_cb), use.names = FALSE))
+    
+#------------------- CASEBASE ------------------
+    # (penalized based on selection)
+    
+    # Estimate absolute risk curve 
+    risk_pencb <- predictRisk(
+        res$models$fit_val_min2SE,
+        newdata = train,
+        time = time_points, 
+        cause = 1)
+    
+    risk_pencb <- as.numeric(colMeans(risk_pencb))
+    
+#-------------- Fine-Grey -----------
+    # Estimate absolute risk curve 
+    
+    risk_fg <- predictRisk(res$models$cbfit, 
+                           newdata = test, 
+                           times = time_points, 
+                           cause = 1)
+    
+    risk_fg <- as.numeric(colMeans(risk_fg))
+    
+#-------------- Cox EN (?) -----------
+    # Estimate absolute risk curve
+    
+    risk_iCS <- predictRisk(res$models$iCS, 
+                            newdata = test, 
+                            times = time_points, 
+                            cause = 1)
+    risk_iCS <- as.numeric(colMeans(risk_iCS))
+    
+#--------- combine all -------------------
+risk_all <-dplyr::bind_rows(
+        data.frame(
+            Time = time_points,
+            Method = "De-biased Case-base",
+            Type = "CB",
+            Risk = risk_cb,
+            stringsAsFactors = FALSE),
+        data.frame(
+            Time = time_points,
+            Method = "Case-base",
+            Type = "CB",
+            Risk = risk_pencb,
+            stringsAsFactors = FALSE),
+        data.frame(
+            Time = time_points,
+            Method = "Boosted Fine-Gray",
+            Type = "other",
+            Risk = risk_fg,
+            stringsAsFactors = FALSE),
+        data.frame(
+            Time = time_points,
+            Method = "iCR",
+            Type = "other",
+            Risk = risk_iCS,
+            stringsAsFactors = FALSE) 
+    ) %>%
+        dplyr::filter(Time <= 60)
+    
+#--------- PLOT ------
+risk_all$title <- settings_tbl$desc[settings_tbl$setting == paste0("setting",setting)]
+    
+cbPalette <- c("#CC79A7", "#E69F00","#D55E00", "#56B4E9")
 
-dir.create(dirname(out), recursive = TRUE, showWarnings = FALSE)
+risk_plot <- ggplot(risk_all, aes(x = Time, y = Risk, colour = Method)) +
+        # geom_line for smooth curve
+        geom_line(data = dplyr::filter(risk_all, Type == "CB"), linewidth = 1) +
+        geom_step(data = dplyr::filter(risk_all, Type != "CB"), linewidth = 1) +
+        ylim(c(0, 1)) + theme(text = element_text(size = 30)) + 
+        xlab("Time (in Years)") +
+        ylab("Absolute Risk") + 
+        theme_bw()+ scale_colour_brewer(palette = "Dark2")+
+        scale_colour_manual(values=cbPalette) + 
+        facet_grid(. ~ title)
+            
+#------- save plot ------------------------------
+img_dir <- here::here("paper","cif_figs")
+file_name <- file.path(img_dir, paste0("cif_", run_id,".png"))
+    
+ggsave(file_name, risk_plot,
+           width = 20, height = 12, units = "cm", dpi = 300) 
+}
+
+#---------------- PLOT GRID ----------------------
+
+plot_grid <- function(input_name,out_name){
+
+dir.create(dirname(out_name), recursive = TRUE, showWarnings = FALSE)
 
 # --- SAVE TO FILE ---
-grDevices::png(out, width = 2400, height = 1600, res = 200)
+grDevices::png(out_name, width = 2400, height = 1600, res = 200)
 grid::grid.newpage()
 vp <- grid::viewport(layout = grid::grid.layout(2, 3))
 grid::pushViewport(vp)
 
-for (i in seq_along(files)) {
+for (i in seq_along(input_name)) {
     r <- ((i - 1) %/% 3) + 1
     c <- ((i - 1) %%  3) + 1
-    img <- png::readPNG(files[i])                # note: png::readPNG => no library(png) needed
+    img <- png::readPNG(input_name[i])               
     grid::grid.raster(img, vp = grid::viewport(layout.pos.row = r, layout.pos.col = c))
 }
 }

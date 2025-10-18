@@ -17,175 +17,147 @@
 
 # Setup ----
 ## Packages to use ----
-pacman::p_load(tidyverse, janitor, writexl, 
-                            readxl, scales, mytidyfunctions, 
-                            presupuestoR)
-
-## Set theme ------
-set_mytheme(text = element_text(family = "Times New Roman"))
-
-# Setup ----
-## Packages to use ----
-
-#' To install mytidyfunctions, you need 
-#' remotes::install_github("JavierMtzRdz/mytidyfunctions")
 if (!require("pacman")) install.packages("pacman")
-if (!require("mytidyfunctions")) remotes::install_github("JavierMtzRdz/mytidyfunctions")
+pacman::p_load(
+    tidyverse, here, glue,
+    readxl, writexl, janitor, kableExtra,
+    survival, cmprsk, pec, casebase, survminer,
+    glmnet, patchwork, scales, zoo,
+    future.apply, foreach, parallel, tictoc
+)
 
+# Source local helper functions.
+source(here("notes_jmr", "code", "fitting_functionsV2.R"))
 
-pacman::p_load(tidyverse, janitor, writexl, 
-               readxl, scales, mytidyfunctions,
-               patchwork, here, 
-               mtool, bench, kableExtra)
+# Load data
 
-library(casebase)
-library(future.apply)
-library(glmnet)
-library(mtool)
-library(parallel)
-library(tictoc)
-library(tidyverse)
-library(foreach)
-library(survival)
-library(cmprsk)
-library(glue)
-library(pec)
-library(survminer)
+# Define file paths.
+results_dir <- here("paper", "results")
+figs_dir <- here("paper", "figs")
+select_mod_path <- file.path(results_dir, "select_mod.rds")
 
+# Create directories if they don't exist.
+dir.create(figs_dir, showWarnings = FALSE, recursive = TRUE)
 
-source(here(#"MSc_criskcasebase",
-    "notes_jmr","code", "fitting_functionsV2.R"))
+# Read processed data if it exists, otherwise generate it.
+if (file.exists(select_mod_path)) {
+    select_mod <- readRDS(select_mod_path)
+} else {
+    # Find all raw model result files.
+    model_files <- list.files(
+        path = file.path(results_dir, "lambda_paths"),
+        pattern = "models_",
+        recursive = TRUE,
+        full.names = TRUE
+    )
+    
+    # Tidy file metadata.
+    data_proj <- tibble(file_path = model_files) %>%
+        mutate(
+            name = str_extract(file_path, "(?<=models_)(.*?)(?=.rds)"),
+            name = str_replace(name, "selec", "setting")
+        ) %>%
+        separate(
+            name,
+            into = c("setting", "sim", "p", "k"),
+            sep = "_",
+            remove = FALSE,
+            convert = TRUE # Automatically converts to numeric
+        ) %>%
+        mutate(
+            across(c(setting, sim, p, k), ~ as.numeric(str_remove(., "[^0-9.-]"))),
+            dim = glue("p = {p}, k = {k}")
+        ) %>%
+        filter(sim <= 15) %>%
+        arrange(p, k)
+    
+    # Read and combine individual model coefficients.
+    select_mod <- data_proj %>%
+        pmap_dfr(function(...) {
+            row <- list(...)
+            readRDS(row$file_path) %>%
+                mutate(
+                    model_size = TP + FP,
+                    model = if_else(model == "enet-casebase-Acc", "cbSCRIP", model)
+                ) %>%
+                bind_cols(
+                    select(row, -file_path, -sim), .
+                )
+        })
+    
+    # Save the processed data frame.
+    saveRDS(select_mod, select_mod_path)
+}
 
-## Load fonts ----
-extrafont::loadfonts(quiet = TRUE)
-
-## Set theme ------
-mytidyfunctions::set_mytheme(text = element_text(family = "Times New Roman"))
-
-
-# Set-up process
-
-save <- F
-
-
-# Load coefficients
-
-## Load related files
-name_files <- list.files(here("paper", "results",
-                              "lambda_paths"), 
-                         pattern = 'models_',
-    recursive = T, full.names = T)
-
-name_model <-  tibble(name_files_comp = name_files,
-                      name = str_extract(name_files, "(?<=models_)(.*?)(?=.rds)")) %>% 
-    mutate(name = str_replace(name, "selec", "setting"))
-
-## Tidy up dataframe
-data_proj <- name_model %>%
-    select(name_files_comp, name) %>% 
-    separate(name, sep = "_", 
-             into = c("setting", "sim", "p", "k"),
-             remove = F) %>% 
-    mutate(setting = as.numeric(str_remove(setting, "setting-")),
-           sim = as.numeric(str_remove(sim, "iter-")),
-           p = as.numeric(str_remove(p, "p-")),
-           k = as.numeric(str_remove(k, "k-")),
-           dim = glue::glue("p = {p}, k = {k}", .sep = "=")) %>% 
-    filter(sim <= 15) %>% 
-    arrange(p, k)
-
-
-## Read coefficients
-
-select_mod <- readRDS(here("paper", "results", "select_mod.rds")) %>% 
+select_mod <- select_mod %>%
     filter(!str_detect(model, "SCAD"))
 
 
-# Extrapolate for missing model size
-
-sum_selec <- select_mod %>% 
-    group_by(model, setting, dim, sim, p, k, model_size) %>% 
-    summarise(n_models = n(),
-              across(Sensitivity:MCC, mean)) %>% 
-    group_by(model, setting, dim, sim, p, k) %>% 
+# Interpolate metrics for missing model sizes.
+sum_selec <- select_mod %>%
+    group_by(model, setting, dim, sim, p, k) %>%
     group_split() %>%
-    map_df(\(y){
-        y %>% 
-            full_join(tibble(model_size = 1:max(y$p)), 
-                      by = join_by(model_size)) %>% 
-            arrange(model_size) %>% 
-            mutate(across(c(Sensitivity, Specificity, MCC), 
-                          \(x){zoo::na.approx(x,
-                                              model_size,
-                                              na.rm = F)}),
-                   across(c(model, setting, dim, sim, p, k),
-                          \(x){first(na.omit(x))})) 
+    map_dfr(~ {
+        .x %>%
+            full_join(tibble(model_size = 1:.x$p[1]), by = "model_size") %>%
+            arrange(model_size) %>%
+            mutate(across(c(Sensitivity, Specificity, MCC),
+                          ~ zoo::na.approx(.x, model_size, na.rm = FALSE)
+            )) %>%
+            fill(model, setting, dim, sim, p, k, .direction = "downup")
     })
 
-
-sum_selec %>% 
-    ungroup() %>% 
+# Summarize metrics across simulations.
+plot_data <- sum_selec %>%
     group_by(model_size, p, k, setting, model, dim) %>%
-    summarise(Sensitivity = mean(Sensitivity, na.rm = T),
-              Specificity = mean(Specificity, na.rm = T)) %>%
-    arrange(p, model_size) %>%  
-    ggplot(aes(x = model_size, y = Sensitivity,
-               color = model)) +
+    summarise(
+        across(c(Sensitivity, Specificity, MCC), ~ mean(.x, na.rm = TRUE)),
+        .groups = "drop"
+    ) %>%
+    arrange(p, model_size)
+
+
+# Plot 1: Sensitivity vs. Model Size
+(p1 <- ggplot(plot_data, aes(x = model_size, y = Sensitivity, color = model)) +
     geom_path() +
-    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
-               scale = "free_x") +
-    ylim(-0.01,1.01) +
-    labs(x = "Model size",
-         color = "Model ")
+    facet_grid(paste0("Setting ", setting) ~ fct_inorder(dim), scales = "free_x") +
+    coord_cartesian(ylim = c(0, 1)) +
+    labs(x = "Model Size", color = "Model"))
 
-ggsave(here("paper", "figs", "selection-tpr.png"),
-       bg = "transparent",
-       width = 200,     
-       height = 120,
-       units = "mm",
-       dpi = 300)
+ggsave(
+    filename = "selection-tpr.png",
+    plot = p1,
+    path = figs_dir,
+    width = 200, height = 120, units = "mm", dpi = 300, bg = "transparent"
+)
 
-
-sum_selec %>% 
-    ungroup() %>% 
-    group_by(model_size, p, k, setting, model, dim) %>% 
-    summarise(MCC = mean(MCC, na.rm = T)) %>% 
-    arrange(p, model_size) %>%  
-    ggplot(aes(x = model_size, y = MCC,
-               color = model)) +
+# Plot 2: MCC vs. Model Size
+(p2 <- ggplot(plot_data, aes(x = model_size, y = MCC, color = model)) +
     geom_line() +
-    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim),
-               scale = "free_x") +
-    ylim(-0.1,1.01) +
-    labs(x = "Model size",
-         color = "Model ")
+    facet_grid(paste0("Setting ", setting) ~ fct_inorder(dim), scales = "free_x") +
+    coord_cartesian(ylim = c(-0.1, 1)) +
+    labs(x = "Model Size", color = "Model"))
 
-ggsave(here("paper", "figs", "selection-mcc.png"),
-       bg = "transparent",
-       width = 200,     
-       height = 120,
-       units = "mm",
-       dpi = 300)
+ggsave(
+    filename = "selection-mcc.png",
+    plot = p2,
+    path = figs_dir,
+    width = 200, height = 120, units = "mm", dpi = 300, bg = "transparent"
+)
 
-
-# selection curve
-sum_selec %>% 
-    group_by(model_size, p, k, setting, model, dim) %>% 
-    summarise(Sensitivity = mean(Sensitivity),
-              Specificity = mean(Specificity)) %>% 
-    arrange(p, model_size) %>% 
-    ggplot(aes(x = 1 - Specificity, y = Sensitivity,
-               color = model)) +
+# Plot 3: ROC-like Curve (Sensitivity vs. 1 - Specificity)
+(p3 <- ggplot(plot_data, aes(x = 1 - Specificity, y = Sensitivity, color = model)) +
     geom_path() +
-    facet_grid(paste0("Setting ", setting) ~fct_inorder(dim)) +
+    facet_grid(paste0("Setting ", setting) ~ fct_inorder(dim)) +
     coord_equal() +
     scale_x_continuous(breaks = c(.25, .5, .75, 1)) +
-    ylim(-0.01,1.01) +
-    labs(color = "Model ")
+    coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+    labs(x = "1 - Specificity", color = "Model"))
 
-ggsave(here("paper", "figs", "selection-curve.png"),
-       bg = "transparent",
-       width = 180,     
-       height = 180,
-       units = "mm",
-       dpi = 300)
+ggsave(
+    filename = "selection-curve.png",
+    plot = p3,
+    path = figs_dir,
+    width = 180, height = 180, units = "mm", dpi = 300, bg = "transparent"
+)
+

@@ -3,7 +3,8 @@
 ################## Brier score prediction function for casebase #######################
 predictRisk.CompRisk<- function(object, newdata, times, cause, ...) {
     #get all covariates excluding intercept and time
-    coVars=colnames(object@originalData[, c(grepl("X", colnames(object@originalData)))])
+    
+    coVars=colnames(object@x[, c(grepl("X", colnames(object@x)))])
     #coVars is used in lines 44 and 50
     newdata=data.matrix(drop(subset(newdata, select=coVars)))
     

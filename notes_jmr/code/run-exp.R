@@ -202,7 +202,7 @@ source(here::here("paper","code", "settin-exp.R"))
 # Lambda path experiments ----
 ## Setting 1 ----
 
-start_sims <- 1
+i <- 1
 sims <- 15
 setting <- 1
 p <- 120

@@ -705,6 +705,8 @@ cbSCRIP <- function(formula, data, regularization = 'elastic-net',
     path_fits <- vector("list", nlambda)
     
     param_start <- NULL #
+    # c_factor <- 1000
+    # v_factor <- 1000
     
     cli::cli_progress_bar("Fitting Path", total = nlambda)
     for (i in seq_along(lambdagrid)) {
@@ -716,6 +718,8 @@ cbSCRIP <- function(formula, data, regularization = 'elastic-net',
             alpha = alpha,
             n_unpenalized = n_unpenalized,
             param_start = param_start, # Pass warm start
+            # c_factor = c_factor,
+            # v_factor = v_factor,
             ...
         )
         path_fits[[i]] <- model_info
@@ -723,6 +727,8 @@ cbSCRIP <- function(formula, data, regularization = 'elastic-net',
         # Update the warm start for the next iteration
         if(warm_start) {
             param_start <- model_info$coefficients
+            # c_factor <- c_factor*1.1
+            # v_factor <- v_factor*0.8
         }
         cli::cli_progress_update()
     }

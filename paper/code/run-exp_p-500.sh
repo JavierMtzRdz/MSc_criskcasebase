@@ -14,7 +14,7 @@ R_SCRIPT_NAME="paper/code/fit-curve-lambda.R"
 
 # --- Additional Arguments ---
 # Define static P_ARG.
-P_ARG=1000
+P_ARG=500
 
 # Calculate the dynamic NUM_TRUE
 TEMP_VAL=$(echo "$P_ARG * 0.04166667" | bc)

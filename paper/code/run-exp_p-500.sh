@@ -7,7 +7,7 @@ echo "Starting analysis loop..."
 # --- Configuration ---
 # Start and end of index loop.
 START_INDEX=1
-END_INDEX=15
+END_INDEX=30
 
 # Path to R script.
 R_SCRIPT_NAME="paper/code/fit-curve-lambda.R"

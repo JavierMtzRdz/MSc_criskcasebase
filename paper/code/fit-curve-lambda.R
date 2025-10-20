@@ -40,8 +40,8 @@ library(progressr)
 # Fitting functions 
 source(here("notes_jmr",
             "code", "fitting_functionsV2.R"))
-source(here("notes_jmr",
-            "code", "fitting_functionsV3.R"))
+# source(here("notes_jmr",
+#             "code", "fitting_functionsV3.R"))
 
 n_lambda <- 50
 
@@ -92,10 +92,7 @@ test <- data$test
                       nlambda = 50)
     toc()
     
-    
-    cox_mod0 <- glmnet(x = x_train, y = y_train, family = "cox", alpha = 0.5,
-                      lambda = 0)
-    
+
 
     
     table_result_cox <- map_df(cox_mod$lambda,
@@ -104,11 +101,6 @@ test <- data$test
                                        mutate(mse_bias = mse_bias(coef(cox_mod, s = x), beta1),
                                               lambda = x,
                                               params = list(coef(cox_mod, s = x)))}) %>% 
-        bind_rows(as_tibble(varsel_perc(coef(cox_mod0, s = 0),
-                                        beta1)) %>%
-                      mutate(mse_bias = mse_bias(coef(cox_mod0, s = 0), beta1),
-                             lambda = 0,
-                             params = list(coef(cox_mod0, s = 0)))) %>% 
         mutate(model = "enet-CR",
                sim = i,
                model_size = TP + FP)
@@ -120,35 +112,6 @@ test <- data$test
         coord_equal()
 
     
-    # casebase ----
-    if(p <500){
-        fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
-                                  niter_inner_mtplyr = 1.5,
-                                  maxit = 250,
-                                  c_factor =500000,
-                                  v_factor = 100000,
-                                  tolerance = 1e-3,
-                                  save_history = F,
-                                  verbose = F)
-    } else if(p <700){
-    fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
-                               niter_inner_mtplyr = 1,
-                               maxit = 250,
-                               c_factor = 100000,
-                               v_factor = 500,
-                               tolerance = 1e-3,
-                               save_history = F,
-                               verbose = F)
-    }else if(p > 700){
-        fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
-                                   niter_inner_mtplyr = 0.5,
-                                   maxit = 250,
-                                   c_factor = 2000,
-                                   v_factor = 5000,
-                                   tolerance = 1e-3,
-                                   save_history = F,
-                                   verbose = F)
-    }
 
     
     # fit_fun <- purrr::partial(cbSCRIP::MNlogisticAcc,
@@ -174,33 +137,33 @@ test <- data$test
                             train,
                             nlambda = 50,
                             alpha = 0.5,
-                            warm_start = F,
-                            fit_fun = fit_fun,
-                            ratio = 50)
+                            ratio = 50,
+                            coeffs = "original")
     toc()
+    
     
     table_result_cb <- map_df(seq_along(cv.lambdaAcc$lambdagrid),
                               \(x){
-                                  as_tibble(varsel_perc(cv.lambdaAcc$coefficients[[x]][,1],
+                                  as_tibble(varsel_perc(cv.lambdaAcc$coefficients[[x]][1:length(beta1),1],
                                                         beta1)) %>%
-                                      mutate(mse_bias = mse_bias(cv.lambdaAcc$coefficients[[x]][,1], beta1),
+                                      mutate(mse_bias = mse_bias(cv.lambdaAcc$coefficients[[x]][1:length(beta1),1], beta1),
                                              lambda = cv.lambdaAcc$lambdagrid[x],
-                                             params = list(cv.lambdaAcc$coefficients[[x]][,1]))}) %>%
+                                             params = list(cv.lambdaAcc$coefficients[[x]][1:length(beta1),1]))}) %>%
         mutate(model = "enet-casebase-Acc",
                sim = i,
                model_size = TP + FP)
     
-    table_select <- as_tibble(rbind(table_result_cox,
-                                    table_result_cb
-                                    # table_result_SCAD
-    ))
+    # table_select <- as_tibble(rbind(table_result_cox,
+    #                                 table_result_cb
+    #                                 # table_result_SCAD
+    # ))
     
-    (plot <- table_select %>%
-            ggplot(aes(x = 1 - Specificity, y = Sensitivity,
-                       color = model,
-                       linetype = model)) +
-            geom_path() +
-            coord_equal())
+    # (plot <- table_select %>%
+    #         ggplot(aes(x = 1 - Specificity, y = Sensitivity,
+    #                    color = model,
+    #                    linetype = model)) +
+    #         geom_path() +
+    #         coord_equal())
     
  # X_t <- model.matrix(~., 
     #                     data = data.frame(cbind(cv.lambdaAcc$cb_data$covariates, 
@@ -233,9 +196,9 @@ test <- data$test
     #     scale_y_log10() +
     #     labs(y = "F(x)-F(x*)")
     
+    # cv.lambdaAcc$coefficients[[50]] |> View()
     
-    
-    plot(cv.lambdaAcc) +
+    plot(cv.lambdaAcc, plot_intercept = F) +
         geom_vline(xintercept = cv.lambdaAcc$lambdagrid,
                    alpha = 0.5)
     

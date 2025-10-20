@@ -26,6 +26,9 @@ pacman::p_load(
     future.apply, foreach, parallel, tictoc
 )
 
+## Set theme ------
+# mytidyfunctions::set_mytheme(text = element_text(family = "Times New Roman"))
+
 # Source local helper functions.
 source(here("notes_jmr", "code", "fitting_functionsV2.R"))
 
@@ -63,27 +66,23 @@ if (file.exists(select_mod_path)) {
             sep = "_",
             remove = FALSE,
             convert = TRUE # Automatically converts to numeric
-        ) %>%
+        ) %>% 
         mutate(
-            across(c(setting, sim, p, k), ~ as.numeric(str_remove(., "[^0-9.-]"))),
+            across(c(setting, sim, p, k), ~ as.numeric(str_remove(., "^.*-"))),
             dim = glue("p = {p}, k = {k}")
         ) %>%
-        filter(sim <= 15) %>%
         arrange(p, k)
     
     # Read and combine individual model coefficients.
-    select_mod <- data_proj %>%
-        pmap_dfr(function(...) {
-            row <- list(...)
-            readRDS(row$file_path) %>%
-                mutate(
-                    model_size = TP + FP,
-                    model = if_else(model == "enet-casebase-Acc", "cbSCRIP", model)
-                ) %>%
-                bind_cols(
-                    select(row, -file_path, -sim), .
-                )
-        })
+    
+    select_mod <- map_df(1:nrow(data_proj),
+                         function(i){data_proj[i,-1] %>%
+                                 select(-sim) %>%
+                                 bind_cols(suppressMessages(readRDS(data_proj$file_path[i])) %>%
+                                               mutate(model_size = TP + FP,
+                                                      model = if_else(model == "enet-casebase-Acc", "cbSCRIP", model))
+                                 )})
+    
     
     # Save the processed data frame.
     saveRDS(select_mod, select_mod_path)

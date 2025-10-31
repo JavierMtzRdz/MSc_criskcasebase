@@ -37,7 +37,7 @@ knitr:
     fig.align: center
 editor_options: 
   chunk_output_type: console
-bibliography: competing-risk.bib
+bibliography: ../reps/competing-risk.bib
 ---
 
 ```{r preprocessing, include=FALSE}

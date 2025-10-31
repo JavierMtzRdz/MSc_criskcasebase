@@ -67,6 +67,8 @@ table(train$event) / nrow(train)
 table(test$event) / nrow(test)
 ```
 
+## cbSCRIP
+
 ```{r}
 # cbSCRIP cross validation
 
@@ -221,8 +223,6 @@ ggsave(here("paper",
 
 ## Cause-specific Cox models with LASSO
 
-### W/ Partial Likelihood Deviance
-
 ```{r}
 
 y <- Surv(time = train$time, 
@@ -257,3 +257,38 @@ names(selected_coefs_lasso) <- select_vars_lasso
 selected_coefs_lasso
 
 length(selected_coefs_lasso)
+
+``` 
+
+## Cause-specific Cox models with enet
+
+```{r}
+
+p.fac <- rep(1, ncol(x))
+p.fac[1:6] <- 0
+
+set.seed(1234)
+cox_enet_mod <- cv.glmnet(x = x, y = y, family = "cox",
+                          # family = "binomial",
+                          penalty.factor = p.fac,
+                          nfolds = 5,
+                          alpha = 0.5,   
+                          thresh = 1e-9,
+                          maxit = 1e9)
+
+plot(cox_enet_mod)
+
+
+cc_enet_min <- coef(cox_enet_mod, s = cox_enet_mod$lambda.min)
+
+select_vars_enet <- cc_enet_min@Dimnames[[1]][-1][cc_enet_min@i]
+
+selected_coefs_enet <- cc_enet_min@x
+
+names(selected_coefs_enet) <- select_vars_enet
+
+selected_coefs_enet
+
+length(selected_coefs_enet)
+
+``` 

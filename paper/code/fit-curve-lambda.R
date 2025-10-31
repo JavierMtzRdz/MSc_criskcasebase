@@ -34,14 +34,8 @@ pacman::p_load(
     cbSCRIP
 )
 
-# Global parameters
-n_lambda <- 50
-
-
-## Sim parameters
-
-
 # Simulation-specific parameters
+n_lambda <- 50
 n <- 400 # Number of samples
 
 # Read command line arguments

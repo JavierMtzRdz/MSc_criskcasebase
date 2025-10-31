@@ -6,7 +6,23 @@ number-sections: true
 number-depth: 4
 fig-dpi: 400
 format: 
-  html:
+  pdf:
+    documentclass: article
+    header-includes: |
+      \usepackage[left=0.7in,right=0.7in,
+      top=0.7in,bottom=0.5in,footskip=0.7in]{geometry} 
+      \usepackage[document]{ragged2e}
+      \usepackage{amsmath,amsthm,amssymb,amsfonts}
+      \usepackage{mathtools}
+      % Using kp fonts
+      \usepackage{kpfonts}
+      \usepackage{dsfont}
+      \usepackage{centernot}
+      \usepackage[usenames,dvipsnames,table]{xcolor}
+      \usepackage{booktabs} % For improved table lines
+      \renewcommand{\arraystretch}{1} % Increase row spacing
+      \pagenumbering{arabic}
+      \renewcommand\thefigure{\arabic{figure}}
     fontsize: 12pt
     colorlinks: true
 knitr:
@@ -48,6 +64,7 @@ if (!requireNamespace("mytidyfunctions", quietly = TRUE))
 if (requireNamespace("mytidyfunctions", quietly = TRUE)) {
     mytidyfunctions::set_mytheme(text = element_text(family = "Times New Roman"))
 }
+
 ```
 
 ```{r}
@@ -162,21 +179,25 @@ icox_fit <-  iCoxBoost(Hist(time, event)~., data = train, cause = 1,
                     stepno = optim.res$cv.res$optimal.step)
 
 # Cause-Specific
-ics_fit = two.i.CSlassos(data = train, nlambda = 100, 
+icr_fit = two.i.CSlassos(data = train, nlambda = 100, 
                      var_time = "time", 
                       var_status = "event")
 
 all_models <- list(
-    "cbSCRIP 1SE" = multinom_enet$refitted_models[[which(multinom_enet$lambdagrid == cv_multinom_enet$lambda.1se)]],
-    "cbSCRIP" = multinom_enet$refitted_models[[which(multinom_enet$lambdagrid == cv_multinom_enet$lambda.min)]],
+    "cbSCRIP 1SE" = multinom_enet$refitted_models[[which(
+        multinom_enet$lambdagrid == cv_multinom_enet$lambda.1se
+        )]],
+    "cbSCRIP" = multinom_enet$refitted_models[[which(
+        multinom_enet$lambdagrid == cv_multinom_enet$lambda.min
+        )]],
     "Casebase" = casebase_fit,
     "Aalen-Johansen" = aj_fit,
     "Boosted Fine-Gray" = icox_fit,
-    "iCS" = ics_fit
+    "iCR" = icr_fit
 )
 
 # Estimate Brier Scores
-all_scores <- Score(
+all_scores_event_1 <- Score(
     all_models,
     formula = Hist(time, event) ~ 1,
     data = test,
@@ -187,7 +208,18 @@ all_scores <- Score(
     cause = 1
 )
 
-data_brier <- all_scores$Brier$score %>%
+all_scores_event_2 <- Score(
+    all_models,
+    formula = Hist(time, event) ~ 1,
+    data = test,
+    times = time_points,
+    summary = "ibs",
+    se.fit = FALSE,
+    metrics = "Brier",
+    cause = 2
+)
+
+data_brier <- all_scores_event_1$Brier$score %>%
     filter(model != "Null model") %>%
     mutate(model = as.character(model))
 
@@ -198,10 +230,10 @@ cpl_palette <- c("cbSCRIP" = "#184d63",
                  "Casebase" = "#16A1CD",
                  "Aalen-Johansen" = "#43AA8B",
                  "Boosted Fine-Gray" = "#F9C74F",
-                 "iCS" = "#f94144")
+                 "iCR" = "#f94144")
 
 (plot_ar_briers <- data_brier |> 
-        filter(model != "cbSCRIP 1SE") |>
+        filter(!str_detect(model, "cbSCRIP 1SE|Casebase")) |>
   ggplot(aes(times, Brier, colour = model,
                linewidth = ifelse(str_detect(model, "cbSCRIP"), 0.5, 0.1))) +
     geom_line() +

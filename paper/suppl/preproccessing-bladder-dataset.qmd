@@ -37,7 +37,7 @@ knitr:
     fig.align: center
 editor_options: 
   chunk_output_type: console
-bibliography: ../reps/competing-risk.bib
+bibliography: ../refs/competing-risk.bib
 ---
 
 ```{r preprocessing, include=FALSE}
@@ -136,7 +136,8 @@ bladder_hd <- read_xls(here::here("paper/data/6517200/10780432ccr062940-sup-supp
         # Clinical variables
         age = as.numeric(age),
         female = if_else(str_trim(sex) == "F", 1, 0),
-        progression = factor(progression_0_no_progression_1_progression_to_t1_2_progression_to_t2),
+        progression = factor(
+            progression_0_no_progression_1_progression_to_t1_2_progression_to_t2),
         clinicalrisk = clinical_risk_1_high_risk_0_low_risk,
         followup = follow_up_months_from_tumor_to_last_visit_to_the_clinic_or_to_cystectomy,
         ## Reclassification of NA based on paper

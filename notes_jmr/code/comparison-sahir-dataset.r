@@ -52,8 +52,8 @@ cv_multinom_enet <- cv_cbSCRIP(
     nfold = 5,
     nlambda = 50,
     warm_start = T,
-    fit_fun = mtool_fit_fun,
-    ratio = 50)
+    ratio = 50,
+    lambda_max = 0.1)
 
 plot(cv_multinom_enet)
 
@@ -63,26 +63,19 @@ multinom_enet <- cbSCRIP(
     Surv(ftime, Status) ~ .,
     data = bmtcrr_mtx,
     alpha = 0.5,
-    # lambda = .01,
-    warm_start = F,
-    fit_fun = mtool_fit_fun,
-    ratio = 50)
-
-plot(multinom_enet)
-
-multinom_enet <- cbSCRIP(
-    Surv(ftime, Status) ~ .,
-    data = bmtcrr_mtx,
-    alpha = 0.5,
     lambda = 0,
     warm_start = F,
     fit_fun = mtool_fit_fun,
     ratio = 50)
-multinom_enet$coefficients
 
-model1 <- fitSmoothHazard(Status ~ ftime + Sex + D + Phase + Source + Age, 
+
+
+multinom_enet$coefficients
+multinom_enet$cb_data$offset
+
+model1 <- fitSmoothHazard(Status ~ log(ftime) + Sex + D + Phase + Source + Age, 
                           data = bmtcrr, 
-                          ratio = 100,
+                          ratio = 50,
                           time = "ftime")
 summary(model1)
 

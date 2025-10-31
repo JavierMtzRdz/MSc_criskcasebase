@@ -15,10 +15,6 @@ library(pec)
 library(CoxBoost)
 library(riskRegression)
 
-# ---------- loading prediction functions --------------
-source("notes_jmr/code/fitting_functions.R")
-source("paper/code/prediction_functions.r")
-
 #--------------- BRIER PLOTS FUNCTION -------------------
 
 brier_fn <- function(n, p, num_true, setting,save_dir = here::here("paper","preds")){

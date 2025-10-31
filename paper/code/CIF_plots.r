@@ -1,3 +1,5 @@
+source("paper/code/brier_cif_fns.R")
+
 ################# Plot CIF #########################################
 
 settings_tbl <- tibble::tribble(

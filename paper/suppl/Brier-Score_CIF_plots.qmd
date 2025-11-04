@@ -70,11 +70,11 @@ if (requireNamespace("mytidyfunctions", quietly = TRUE)) {
 
 settings_tbl <- tibble::tribble(
     ~setting,    ~desc,
-    "setting1",  "Single effects on end-point of interest",
-    "setting2", "Single effects on both end-points",
-    "setting3", "Opposing effects",
-    "setting4", "Mixture of effects",
-    "setting5", "Non-proportional hazards"
+    "setting1",  "1. Single effects on end-point of interest",
+    "setting2", "2. Single effects on both end-points",
+    "setting3", "3. Opposing effects",
+    "setting4", "4. Mixture of effects",
+    "setting5", "5. Non-proportional hazards"
 )
 
 # Model colors
@@ -266,6 +266,8 @@ cif_table <- map_df(1:5,
                           mutate(setting = .)})
 
 cat(paste0("CIF plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
+
+
 
 (plot <- cif_table |> 
         tibble() |> 

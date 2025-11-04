@@ -4,11 +4,11 @@ source("paper/code/brier_cif_fns.R")
 
 settings_tbl <- tibble::tribble(
     ~setting,    ~desc,
-    "setting1",  "Single effects on end-point of interest",
-    "setting2", "Single effects on both end-points",
-    "setting3", "Opposing effects",
-    "setting4", "Mixture of effects",
-    "setting5", "Non-proportional hazards"
+    "setting1",  "1. Single effects on end-point of interest",
+    "setting2", "2. Single effects on both end-points",
+    "setting3", "3. Opposing effects",
+    "setting4", "4. Mixture of effects",
+    "setting5", "5. Non-proportional hazards"
 )
 
 #----------------------------

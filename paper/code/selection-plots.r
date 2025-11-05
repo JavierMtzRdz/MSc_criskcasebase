@@ -89,7 +89,9 @@ if (file.exists(select_mod_path)) {
 }
 
 select_mod <- select_mod %>%
-    filter(!str_detect(model, "SCAD"))
+    filter(!str_detect(model, "SCAD")) |> 
+    mutate(model = case_match(model, "enet-CR" ~ "enet-iCox", 
+                               .default = model))
 
 
 # Interpolate metrics for missing model sizes.

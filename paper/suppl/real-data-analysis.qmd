@@ -192,8 +192,8 @@ all_models <- list(
         )]],
     "Casebase" = casebase_fit,
     "Aalen-Johansen" = aj_fit,
-    "Boosted Fine-Gray" = icox_fit,
-    "iCR" = icr_fit
+    "SHBoost" = icox_fit,
+    "enet-iCox" = icr_fit
 )
 
 # Estimate Brier Scores
@@ -229,8 +229,8 @@ cpl_palette <- c("cbSCRIP" = "#184d63",
                  "cbSCRIP 1SE" = "#277DA1",
                  "Casebase" = "#16A1CD",
                  "Aalen-Johansen" = "#43AA8B",
-                 "Boosted Fine-Gray" = "#F9C74F",
-                 "iCR" = "#f94144")
+                 "SHBoost" = "#F9C74F",
+                 "enet-iCox" = "#f94144")
 
 (plot_ar_briers <- data_brier |> 
         filter(!str_detect(model, "cbSCRIP 1SE|Casebase")) |>

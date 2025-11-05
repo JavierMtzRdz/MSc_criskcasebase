@@ -80,8 +80,8 @@ settings_tbl <- tibble::tribble(
 # Model colors
 cpl_palette <- c("cbSCRIP" = "#277DA1", 
                  "Aalen-Johansen" = "#43AA8B",
-                 "Boosted Fine-Gray" = "#F9C74F",
-                 "iCR" = "#f94144")
+                 "SHBoost" = "#F9C74F",
+                 "enet-iCox" = "#f94144")
 
 # Load supporting functions
 source(here::here("paper","code","brier_cif_fns.R"))
@@ -100,7 +100,9 @@ brier_table <- map_df(1:5,
                       res <- readRDS(here::here("paper","preds", 
                                                 paste0("results_", run_id, ".rds")))
                       res$brier_table |> 
-                          mutate(setting = .)})
+                          mutate(setting = .)}) |> 
+    mutate(model = case_match(model, "iCR" ~ "enet-iCox", "Boosted Fine-Gray" ~ "SHBoost",
+                              .default = model))
 
 cat(paste0("Brier Score plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
 
@@ -132,7 +134,9 @@ brier_table <- map_df(1:5,
                       res <- readRDS(here::here("paper","preds", 
                                                 paste0("results_", run_id, ".rds")))
                       res$brier_table |> 
-                          mutate(setting = .)})
+                          mutate(setting = .)}) |> 
+    mutate(model = case_match(model, "iCR" ~ "enet-iCox", "Boosted Fine-Gray" ~ "SHBoost",
+                              .default = model))
 
 cat(paste0("Brier Score plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
 
@@ -164,7 +168,9 @@ brier_table <- map_df(1:5,
                       res <- readRDS(here::here("paper","preds", 
                                                 paste0("results_", run_id, ".rds")))
                       res$brier_table |> 
-                          mutate(setting = .)})
+                          mutate(setting = .)}) |> 
+    mutate(model = case_match(model, "iCR" ~ "enet-iCox", "Boosted Fine-Gray" ~ "SHBoost",
+                              .default = model))
 
 cat(paste0("Brier Score plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
 
@@ -197,7 +203,9 @@ brier_table <- map_df(1:5,
                       res <- readRDS(here::here("paper","preds", 
                                                 paste0("results_", run_id, ".rds")))
                       res$brier_table |> 
-                          mutate(setting = .)})
+                          mutate(setting = .)}) |> 
+    mutate(model = case_match(model, "iCR" ~ "enet-iCox", "Boosted Fine-Gray" ~ "SHBoost",
+                              .default = model))
 
 cat(paste0("Brier Score plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
 
@@ -231,7 +239,9 @@ brier_table <- map_df(1:5,
                       res <- readRDS(here::here("paper","preds", 
                                                 paste0("results_", run_id, ".rds")))
                       res$brier_table |> 
-                          mutate(setting = .)})
+                          mutate(setting = .)}) |> 
+    mutate(model = case_match(model, "iCR" ~ "enet-iCox", "Boosted Fine-Gray" ~ "SHBoost",
+                              .default = model))
 
 cat(paste0("Brier Score plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
 
@@ -263,7 +273,9 @@ N <- 400; p <- 120; k <- 20
 
 cif_table <- map_df(1:5,
                       ~ {cif_data_fn(N, p, k, .) |> 
-                          mutate(setting = .)})
+                          mutate(setting = .)}) |> 
+    mutate(Method = case_match(Method, "iCR" ~ "enet-iCox", "Boosted Fine-Gray" ~ "SHBoost",
+                              .default = Method))
 
 cat(paste0("CIF plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
 
@@ -294,7 +306,9 @@ N <- 400; p <- 500; k <- 20
 
 cif_table <- map_df(1:5,
                     ~ {cif_data_fn(N, p, k, .) |> 
-                            mutate(setting = .)})
+                            mutate(setting = .)}) |> 
+    mutate(Method = case_match(Method, "iCR" ~ "enet-iCox", "Boosted Fine-Gray" ~ "SHBoost",
+                              .default = Method))
 
 cat(paste0("CIF plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
 
@@ -324,7 +338,9 @@ N <- 400; p <- 500; k <- 84
 
 cif_table <- map_df(1:5,
                     ~ {cif_data_fn(N, p, k, .) |> 
-                            mutate(setting = .)})
+                            mutate(setting = .)}) |> 
+    mutate(Method = case_match(Method, "iCR" ~ "enet-iCox", "Boosted Fine-Gray" ~ "SHBoost",
+                              .default = Method))
 
 cat(paste0("CIF plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
 
@@ -354,7 +370,9 @@ N <- 400; p <- 1000; k <- 20
 
 cif_table <- map_df(1:5,
                     ~ {cif_data_fn(N, p, k, .) |> 
-                            mutate(setting = .)})
+                            mutate(setting = .)}) |> 
+    mutate(Method = case_match(Method, "iCR" ~ "enet-iCox", "Boosted Fine-Gray" ~ "SHBoost",
+                              .default = Method))
 
 cat(paste0("CIF plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
 
@@ -385,7 +403,9 @@ N <- 400; p <- 1000; k <- 168
 
 cif_table <- map_df(1:5,
                     ~ {cif_data_fn(N, p, k, .) |> 
-                            mutate(setting = .)})
+                            mutate(setting = .)}) |> 
+    mutate(Method = case_match(Method, "iCR" ~ "enet-iCox", "Boosted Fine-Gray" ~ "SHBoost",
+                              .default = Method))
 
 cat(paste0("CIF plot \n Setting: n = ", N, ", p = ", p, ", k = ", k))
 
